@@ -1,4 +1,4 @@
-package main
+package taskw
 
 import (
 	"bufio"
@@ -92,11 +92,16 @@ func init() {
 	rootCmd.AddCommand(cleanCmd)
 }
 
-func main() {
+// Execute runs the root command
+func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func main() {
+	Execute()
 }
 
 var initCmd = &cobra.Command{

@@ -31,8 +31,23 @@ Taskw automatically generates #3 and #4 by scanning your code for annotations an
 
 ## Installation
 
+### Option 1: Install from source (Recommended)
+
 ```bash
 go install github.com/nkaewam/taskw@latest
+```
+
+### Option 2: Download pre-built binaries
+
+Download the latest binary for your platform from the [releases page](https://github.com/nkaewam/taskw/releases).
+
+### Option 3: Build from source
+
+```bash
+git clone https://github.com/nkaewam/taskw.git
+cd taskw
+go build -o taskw main.go
+sudo mv taskw /usr/local/bin/
 ```
 
 ## Quick Start

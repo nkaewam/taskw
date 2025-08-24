@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+        
+    - name: Run tests
+      run: go test ./...
+      
+    - name: Build binaries
+      run: |
+        # Build for multiple platforms
+        GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o taskw-linux-amd64 main.go
+        GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o taskw-linux-arm64 main.go
+        GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o taskw-darwin-amd64 main.go
+        GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o taskw-darwin-arm64 main.go
+        GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o taskw-windows-amd64.exe main.go
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          taskw-linux-amd64
+          taskw-linux-arm64
+          taskw-darwin-amd64
+          taskw-darwin-arm64
+          taskw-windows-amd64.exe
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
