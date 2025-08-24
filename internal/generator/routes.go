@@ -59,15 +59,12 @@ func (g *RouteGenerator) organizeRoutesByPackage(routes []scanner.RouteMapping) 
 	routesByPackage := make(map[string][]scanner.RouteMapping)
 
 	for _, route := range routes {
+		// Convert path format early for consistent sorting
+		route.Path = g.convertPathForFiber(route.Path)
 		routesByPackage[route.Package] = append(routesByPackage[route.Package], route)
 	}
 
-	// Sort routes within each package by path for consistent output
-	for pkg := range routesByPackage {
-		sort.Slice(routesByPackage[pkg], func(i, j int) bool {
-			return routesByPackage[pkg][i].Path < routesByPackage[pkg][j].Path
-		})
-	}
+	// Routes will be sorted globally later
 
 	return routesByPackage
 }
@@ -88,16 +85,34 @@ func (g *RouteGenerator) generateImports(handlers []scanner.HandlerFunction, rou
 // generateRouteFileContent creates the actual file content
 func (g *RouteGenerator) generateRouteFileContent(routesByPackage map[string][]scanner.RouteMapping, imports []string) (string, error) {
 	// Flatten routes from all packages into a single slice
+	// Process packages in deterministic order
+	var packageNames []string
+	for pkg := range routesByPackage {
+		packageNames = append(packageNames, pkg)
+	}
+	sort.Strings(packageNames)
+
 	var allRoutes []scanner.RouteMapping
-	for _, routes := range routesByPackage {
-		allRoutes = append(allRoutes, routes...)
+	for _, pkg := range packageNames {
+		allRoutes = append(allRoutes, routesByPackage[pkg]...)
 	}
 
-	// Sort routes by path for consistent output
+	// Sort routes with more specific routes first to avoid conflicts
+	// This is the final sort that determines the order in the generated file
 	sort.Slice(allRoutes, func(i, j int) bool {
-		if allRoutes[i].Path == allRoutes[j].Path {
+		scoreA := g.calculateSpecificityScore(allRoutes[i].Path)
+		scoreB := g.calculateSpecificityScore(allRoutes[j].Path)
+
+		// Higher score means more specific (should come first)
+		if scoreA != scoreB {
+			return scoreA > scoreB
+		}
+
+		// If scores are equal, sort by HTTP method then path
+		if allRoutes[i].HTTPMethod != allRoutes[j].HTTPMethod {
 			return allRoutes[i].HTTPMethod < allRoutes[j].HTTPMethod
 		}
+
 		return allRoutes[i].Path < allRoutes[j].Path
 	})
 
@@ -218,6 +233,64 @@ func (g *RouteGenerator) getHandlerRef(pkg, handlerRef string) string {
 		return fmt.Sprintf("s.%s.%s", handlerName, methodName)
 	}
 	return handlerRef
+}
+
+// convertPathForFiber converts OpenAPI/Swagger path parameters to Fiber format
+// Converts {param} to :param for Fiber router
+func (g *RouteGenerator) convertPathForFiber(path string) string {
+	// Convert {param} to :param for Fiber
+	converted := strings.ReplaceAll(path, "{", ":")
+	converted = strings.ReplaceAll(converted, "}", "")
+	return converted
+}
+
+// isMoreSpecificRoute determines if pathA is more specific than pathB
+// More specific routes should be registered first to avoid conflicts
+func (g *RouteGenerator) isMoreSpecificRoute(pathA, pathB string) bool {
+	// Calculate specificity scores for both paths
+	scoreA := g.calculateSpecificityScore(pathA)
+	scoreB := g.calculateSpecificityScore(pathB)
+
+	// Higher score means more specific
+	if scoreA != scoreB {
+		return scoreA > scoreB
+	}
+
+	// If scores are equal, use alphabetical order for consistency
+	return pathA < pathB
+}
+
+// calculateSpecificityScore calculates a numeric score for route specificity
+// Higher scores indicate more specific routes that should be registered first
+func (g *RouteGenerator) calculateSpecificityScore(path string) int {
+	segments := strings.Split(strings.Trim(path, "/"), "/")
+	score := 0
+
+	// Base score: longer paths are more specific
+	score += len(segments) * 1000
+
+	// Bonus for static segments, penalty for parameters
+	for _, segment := range segments {
+		if strings.HasPrefix(segment, ":") {
+			score -= 100 // Parameter penalty
+		} else {
+			score += 100 // Static segment bonus
+		}
+	}
+
+	return score
+}
+
+// countPathParameters counts the number of parameters in a path
+func (g *RouteGenerator) countPathParameters(path string) int {
+	count := 0
+	segments := strings.Split(path, "/")
+	for _, segment := range segments {
+		if strings.HasPrefix(segment, ":") {
+			count++
+		}
+	}
+	return count
 }
 
 // writeGeneratedFile writes content to a file with proper Go formatting

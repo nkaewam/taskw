@@ -429,7 +429,10 @@ func handleScan(configPath string) {
 	if len(result.Routes) > 0 {
 		fmt.Println("\nRoutes:")
 		for _, r := range result.Routes {
-			fmt.Printf("  - %s %s -> %s\n", r.HTTPMethod, r.Path, r.HandlerRef)
+			// Convert {param} to :param for display consistency with generated routes
+			displayPath := strings.ReplaceAll(r.Path, "{", ":")
+			displayPath = strings.ReplaceAll(displayPath, "}", "")
+			fmt.Printf("  - %s %s -> %s\n", r.HTTPMethod, displayPath, r.HandlerRef)
 		}
 	}
 
