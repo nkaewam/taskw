@@ -55,7 +55,6 @@ sudo mv taskw /usr/local/bin/
 ### 1. Initialize in your project
 
 ```bash
-cd your-go-api
 taskw init
 ```
 
