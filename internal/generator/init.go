@@ -76,6 +76,11 @@ func (g *InitGenerator) InitProject(projectPath, module, projectName string) err
 		fmt.Printf("Created directory: %s/\n", dir)
 	}
 
+	// Create or append to .taskwignore
+	if err := g.createOrAppendTaskwIgnore(projectPath); err != nil {
+		fmt.Printf("Warning: Failed to create/update .taskwignore: %v\n", err)
+	}
+
 	// Automatically generate code after scaffolding
 	if err := g.runInitialGeneration(projectPath); err != nil {
 		// Don't fail the entire init process, just warn the user
@@ -151,6 +156,146 @@ func (g *InitGenerator) runInitialGeneration(projectPath string) error {
 func isCommandAvailable(name string) bool {
 	_, err := exec.LookPath(name)
 	return err == nil
+}
+
+// createOrAppendTaskwIgnore creates or appends to .taskwignore file
+func (g *InitGenerator) createOrAppendTaskwIgnore(projectPath string) error {
+	taskwIgnorePath := filepath.Join(projectPath, ".taskwignore")
+
+	// Try to read existing .taskwignore as template (optional)
+	templateContent, usingTemplate := g.readCurrentTaskwIgnore()
+	if !usingTemplate {
+		// No .taskwignore found in current project, use default patterns
+		templateContent = g.getDefaultTaskwIgnoreContent()
+	}
+
+	// Check if .taskwignore already exists in the target project
+	if _, err := os.Stat(taskwIgnorePath); err == nil {
+		// File exists, append our content
+		existingContent, err := os.ReadFile(taskwIgnorePath)
+		if err != nil {
+			return fmt.Errorf("failed to read existing .taskwignore: %w", err)
+		}
+
+		// Check if our content is already present
+		if strings.Contains(string(existingContent), "# Taskw Ignore Patterns") {
+			fmt.Printf("Updated: .taskwignore (Taskw patterns already present)\n")
+			return nil
+		}
+
+		// Append our content with a separator
+		separator := "\n\n# ===== Taskw Default Patterns =====\n"
+		combinedContent := string(existingContent) + separator + templateContent
+
+		if err := os.WriteFile(taskwIgnorePath, []byte(combinedContent), 0644); err != nil {
+			return fmt.Errorf("failed to append to .taskwignore: %w", err)
+		}
+
+		fmt.Printf("Updated: .taskwignore (appended Taskw patterns)\n")
+	} else {
+		// File doesn't exist, create new one
+		if err := os.WriteFile(taskwIgnorePath, []byte(templateContent), 0644); err != nil {
+			return fmt.Errorf("failed to create .taskwignore: %w", err)
+		}
+
+		if usingTemplate {
+			fmt.Printf("Created: .taskwignore (using patterns from current project)\n")
+		} else {
+			fmt.Printf("Created: .taskwignore (using default patterns)\n")
+		}
+	}
+
+	return nil
+}
+
+// readCurrentTaskwIgnore reads the .taskwignore from the current working directory
+// Returns (content, found) where found indicates if a .taskwignore was found
+func (g *InitGenerator) readCurrentTaskwIgnore() (string, bool) {
+	// Try to find .taskwignore in current directory first
+	possiblePaths := []string{
+		".taskwignore",
+		"../.taskwignore", // Check parent directory (useful when running from subdirectory)
+	}
+
+	for _, path := range possiblePaths {
+		if content, err := os.ReadFile(path); err == nil {
+			return string(content), true
+		}
+	}
+
+	// .taskwignore is optional - return empty content and false
+	return "", false
+}
+
+// getDefaultTaskwIgnoreContent returns fallback .taskwignore content
+func (g *InitGenerator) getDefaultTaskwIgnoreContent() string {
+	return `# Taskw Ignore Patterns
+# This file tells taskw which files and directories to exclude from scanning
+
+# Test files
+**/*_test.go
+**/testdata/**
+**/test/**
+**/*_mock.go
+
+# Build artifacts
+**/bin/**
+**/build/**
+**/dist/**
+target/
+
+# Dependencies
+**/vendor/**
+**/node_modules/**
+
+# Generated files (except the ones taskw generates)
+**/*_gen.go
+!routes_gen.go
+!dependencies_gen.go
+**/wire_gen.go
+
+# IDE and editor files
+.vscode/
+.idea/
+**/*.swp
+**/*.swo
+**/*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+**/*.tmp
+**/*.temp
+**/*.log
+
+# Git
+.git/
+.gitignore
+
+# Documentation (optional)
+*.md
+!README.md
+
+# Configuration files (optional)
+*.yaml
+*.yml
+*.json
+*.toml
+!taskw.yaml
+
+# Main/cmd files that don't contain handlers
+cmd/
+main.go
+
+# Models and shared types (no handlers here)
+**/models/**
+**/types/**
+**/errors/**
+**/utils/**
+**/config/**
+`
 }
 
 // ValidateProjectPath checks if the project path is valid for initialization
