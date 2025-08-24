@@ -30,6 +30,4 @@ jobs:
         
     - name: Run tests
       run: go test -v ./...
-      
-    - name: Run e2e tests
-      run: go test -v ./test/e2e/...
+   
