@@ -25,12 +25,6 @@ jobs:
         go install github.com/swaggo/swag/cmd/swag@latest
         go install github.com/google/wire/cmd/wire@latest
         
-    - name: Build taskw binary for tests
-      run: |
-        mkdir -p bin
-        go build -o bin/taskw main.go
-        chmod +x bin/taskw
-      
     - name: Build binaries
       run: |
         # Build for multiple platforms

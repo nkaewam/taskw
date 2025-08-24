@@ -42,6 +42,8 @@ func TestProjectInitialization(t *testing.T) {
 			t.Fatalf("taskw init failed: %v\nOutput: %s", err, string(output))
 		}
 
+		t.Logf("✅ taskw init output: %s", string(output))
+
 		// Verify: Project directory was created
 		projectName := "e2e-init-project"
 		projectDir := filepath.Join(testDir, projectName)
