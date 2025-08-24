@@ -1,0 +1,74 @@
+version: '3'
+
+vars:
+  BINARY_NAME: {{.BinaryName}}
+  MAIN_PATH: ./cmd/server
+  AIR_CONFIG: .air.toml
+
+tasks:
+  build:
+    desc: Build the server binary
+    deps: [generate]
+    cmds:
+      - go build -o bin/{{"{{"}} .BINARY_NAME {{"}}"}} {{"{{"}} .MAIN_PATH {{"}}"}}
+
+  test:
+    desc: Run tests
+    deps: [generate]
+    cmds:
+      - go test -v ./...
+
+  dev:
+    desc: Run development server with live reloading using air
+    deps: [generate, install-air]
+    cmds:
+      - air -c {{"{{"}} .AIR_CONFIG {{"}}"}}
+
+  generate:
+    desc: Generate code using taskw (includes swagger) and wire
+    cmds:
+      - taskw generate all
+      - wire ./internal/api
+
+  swagger:
+    desc: Generate Swagger documentation
+    cmds:
+      - |
+        if ! command -v swag &> /dev/null; then
+          echo "Installing swag..."
+          go install github.com/swaggo/swag/cmd/swag@latest
+        fi
+      - swag init -g ./cmd/server/main.go -o ./docs
+ 
+
+  install-air:
+    desc: Install air if not present
+    cmds:
+      - |
+        if ! command -v air &> /dev/null; then
+          echo "Installing air..."
+          go install github.com/cosmtrek/air@latest
+        else
+          echo "Air already installed"
+        fi
+    status:
+      - command -v air
+
+  clean:
+    desc: Clean generated files and binaries
+    cmds:
+      - rm -f bin/{{"{{"}} .BINARY_NAME {{"}}"}}
+      - rm -f internal/api/*_gen.go
+      - rm -rf docs/
+
+  setup:
+    desc: Setup the project (install dependencies and generate code)
+    cmds:
+      - go mod download
+      - task: generate
+
+  run:
+    desc: Run the server (production mode)
+    deps: [build]
+    cmds:
+      - ./bin/{{"{{"}} .BINARY_NAME {{"}}"}}

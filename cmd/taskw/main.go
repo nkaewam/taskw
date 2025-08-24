@@ -73,6 +73,10 @@ func (s *Spinner) Stop(message string) {
 func init() {
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Path to taskw.yaml config file")
 
+	// Add flags to init command
+	initCmd.Flags().Bool("config-only", false, "Only create configuration files (taskw.yaml and .taskwignore)")
+	initCmd.Flags().StringP("module", "m", "", "Go module name (e.g., github.com/user/project)")
+
 	// Setup generate subcommands
 	generateCmd.AddCommand(generateAllCmd)
 	generateCmd.AddCommand(generateRoutesCmd)
@@ -94,19 +98,88 @@ func main() {
 }
 
 var initCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Create taskw.yaml config and .taskwignore",
-	Long: `Initialize a new TaskW project by creating:
-- taskw.yaml configuration file with default settings
-- .taskwignore file with common exclusion patterns
+	Use:   "init [project-name]",
+	Short: "Initialize a new TaskW project with full scaffold",
+	Long: `Initialize a new TaskW project by scaffolding:
+- cmd/server/main.go - Main server entry point with Swagger docs
+- internal/api/server.go - Server struct and providers
+- internal/api/wire.go - Wire dependency injection setup
+- internal/health/handler.go - Example health check handler
+- .air.toml - Live reload configuration
+- Taskfile.yml - Task runner configuration
+- taskw.yaml - TaskW configuration
+- go.mod - Go module file
 
-This sets up the necessary configuration for TaskW to scan your codebase and generate code.`,
+Examples:
+  taskw init my-api                    # Create project in ./my-api directory
+  taskw init --config-only             # Only create taskw.yaml and .taskwignore`,
 	Run: func(cmd *cobra.Command, args []string) {
-		handleInit(configPath)
+		handleNewInit(cmd, args)
 	},
 }
 
-func handleInit(configPath string) {
+func handleNewInit(cmd *cobra.Command, args []string) {
+	configOnly, _ := cmd.Flags().GetBool("config-only")
+	module, _ := cmd.Flags().GetString("module")
+
+	if configOnly {
+		handleConfigInit(configPath)
+		return
+	}
+
+	// Full project scaffolding
+	if len(args) == 0 {
+		fmt.Println("Error: project name is required")
+		fmt.Println("Usage: taskw init [project-name]")
+		fmt.Println("   or: taskw init --config-only")
+		os.Exit(1)
+	}
+
+	projectName := args[0]
+	projectPath := filepath.Join(".", projectName)
+
+	// Determine module name
+	if module == "" {
+		module = fmt.Sprintf("github.com/example/%s", projectName)
+		fmt.Printf("Using default module name: %s\n", module)
+		fmt.Println("Use --module flag to specify a different module name")
+	}
+
+	// Validate project directory
+	initGen := generator.NewInitGenerator()
+	if err := initGen.ValidateProjectPath(projectPath); err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	spinner := NewSpinner()
+	spinner.Start(fmt.Sprintf("Creating project %s...", projectName))
+
+	// Generate the project
+	if err := initGen.InitProject(projectPath, module, projectName); err != nil {
+		spinner.Stop("Project creation failed")
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	spinner.Stop(fmt.Sprintf("Project %s created successfully", projectName))
+
+	// Success message
+	fmt.Println("\n🎉 Project scaffolded successfully!")
+	fmt.Printf("📁 Created in: %s/\n", projectPath)
+	fmt.Printf("📦 Module: %s\n", module)
+
+	fmt.Println("\nNext steps:")
+	fmt.Printf("  cd %s\n", projectName)
+	fmt.Println("  go mod tidy")
+	fmt.Println("  task setup           # Install dependencies and generate code")
+	fmt.Println("  task dev             # Start development server with live reload")
+	fmt.Println("\nOr run manually:")
+	fmt.Println("  taskw generate       # Generate routes and dependencies")
+	fmt.Println("  go run cmd/server/main.go  # Start the server")
+}
+
+func handleConfigInit(configPath string) {
 	if configPath == "" {
 		configPath = "taskw.yaml"
 	}

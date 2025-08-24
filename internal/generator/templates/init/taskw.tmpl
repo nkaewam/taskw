@@ -1,0 +1,13 @@
+version: "1.0"
+project:
+  module: "{{.Module}}"
+paths:
+  scan_dirs: ["."]
+  output_dir: "./internal/api"
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
