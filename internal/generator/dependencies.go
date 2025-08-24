@@ -72,11 +72,15 @@ func (g *DependencyGenerator) generateImports(providers []scanner.ProviderFuncti
 		`"github.com/google/wire"`,
 	}
 
+	// Determine the output package name from the output directory
+	outputPackage := g.getOutputPackageName()
+
 	// Collect unique packages that need to be imported
 	packageSet := make(map[string]bool)
 	for _, provider := range providers {
-		if provider.Package != "" {
+		if provider.Package != "" && provider.Package != outputPackage {
 			// Generate import path based on module and package
+			// Skip importing the same package as the output file
 			importPath := fmt.Sprintf(`"%s/internal/%s"`, g.config.Project.Module, provider.Package)
 			packageSet[importPath] = true
 		}
@@ -125,5 +129,21 @@ func (g *DependencyGenerator) generateDependencyFileContent(providersByPackage m
 
 // getProviderRef generates the provider reference for Wire
 func (g *DependencyGenerator) getProviderRef(pkg, functionName string) string {
+	outputPackage := g.getOutputPackageName()
+
+	// If the provider is in the same package as the output file,
+	// don't use the package prefix
+	if pkg == outputPackage {
+		return functionName
+	}
+
 	return fmt.Sprintf("%s.%s", pkg, functionName)
+}
+
+// getOutputPackageName determines the package name of the output file
+func (g *DependencyGenerator) getOutputPackageName() string {
+	// Extract package name from output directory
+	// e.g., "./internal/api" -> "api"
+	outputDir := g.config.Paths.OutputDir
+	return filepath.Base(outputDir)
 }

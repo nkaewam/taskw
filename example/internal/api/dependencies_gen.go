@@ -14,6 +14,12 @@ import (
 // GeneratedProviderSet contains all discovered Provide* functions
 var GeneratedProviderSet = wire.NewSet(
 
+	// api module providers
+	ProvideFiberApp,
+	ProvideProductServiceAdapter,
+	ProvideServer,
+	ProvideUserServiceAdapter,
+
 	// health module providers
 	health.ProvideHandler,
 	health.ProvideRepository,

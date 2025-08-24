@@ -55,7 +55,7 @@ Taskw is a Go CLI tool that generates Fiber routes and Wire dependency injection
 
 ### 1.5 File Management
 
-- [ ] **Safe File Writing** - Implement proper file output
+- [x] **Safe File Writing** - Implement proper file output
   - Use `go/format` to ensure generated code is properly formatted
   - Create backup files before overwriting
   - Ensure output directories exist
@@ -84,7 +84,7 @@ Taskw is a Go CLI tool that generates Fiber routes and Wire dependency injection
 
 ### 2.3 Import Resolution
 
-- [ ] **Smart Import Management** - Automatically resolve import paths
+- [x] **Smart Import Management** - Automatically resolve import paths
   - Generate correct import statements based on scanned packages
   - Handle relative vs absolute imports correctly
   - Avoid duplicate imports
@@ -120,7 +120,7 @@ Taskw is a Go CLI tool that generates Fiber routes and Wire dependency injection
 
 ### 3.3 Example Project
 
-- [ ] **Complete Demo** - Working example in `examples/` directory
+- [x] **Complete Demo** - Working example in `examples/` directory
   - Simple API with user/product handlers
   - Proper @Router annotations
   - Provide\* functions for DI

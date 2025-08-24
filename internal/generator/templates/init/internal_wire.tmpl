@@ -10,7 +10,10 @@ import (
 // This only contains infrastructure providers - taskw will add the rest
 var ProviderSet = wire.NewSet(
 
-	// Manual providers (If any)
+	// Manual providers
+	ProvideServer,
+	ProvideFiberApp,
+	ProvideLogger,
 
 	// Generated providers added by taskw
 	GeneratedProviderSet,

@@ -2,12 +2,7 @@ version: "1.0"
 project:
   module: "github.com/example/ecommerce-api"
 paths:
-  scan_dirs:
-    - "./internal/user"
-    - "./internal/product"
-    - "./internal/order"
-    - "./internal/health"
-    - "./internal/logger"
+  scan_dirs: ["."]
   output_dir: "./internal/api"
 generation:
   routes:
