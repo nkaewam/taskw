@@ -17,10 +17,19 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.21'
+        go-version: '1.24.1'
+        
+    - name: Install Task
+      run: go install github.com/go-task/task/v3/cmd/task@latest
+        
+    - name: Build taskw binary for tests
+      run: |
+        mkdir -p bin
+        go build -o bin/taskw main.go
+        chmod +x bin/taskw
         
     - name: Run tests
-      run: go test ./...
+      run: go test -v ./...
       
     - name: Build binaries
       run: |
