@@ -11,4 +11,18 @@ tasks:
     cmds:
       - mkdir -p {{.BUILD_DIR}}
       - go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PATH}}
-    
+
+  install:
+    desc: Build and install taskw to PATH
+    deps: [build]
+    cmds:
+      - sudo ln -sf $PWD/{{.BUILD_DIR}}/{{.BINARY_NAME}} /usr/local/bin/{{.BINARY_NAME}}
+      - echo "taskw installed to /usr/local/bin/{{.BINARY_NAME}}"
+  test:
+    desc: Run all tests
+    cmds:
+      - go test -v ./...
+  test-e2e:
+    desc: Run all e2e tests
+    cmds:
+      - go test -v ./test/e2e/...

@@ -3,19 +3,24 @@ package api
 import (
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
+
+	"{{.Module}}/internal/health"
 )
 
 // Server holds all the handlers and dependencies
 type Server struct {
 	logger *zap.Logger
+	healthHandler *health.Handler
 }
 
 // ProvideServer creates a new server with all dependencies
 func ProvideServer(
 	logger *zap.Logger,
+	healthHandler *health.Handler,
 ) *Server {
 	return &Server{
 		logger: logger,
+		healthHandler: healthHandler,
 	}
 }
 

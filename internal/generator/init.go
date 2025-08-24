@@ -48,6 +48,7 @@ func (g *InitGenerator) InitProject(projectPath, module, projectName string) err
 		{"templates/init/internal/api/server.tmpl", "internal/api/server.go"},
 		{"templates/init/internal/api/wire.tmpl", "internal/api/wire.go"},
 		{"templates/init/internal/health/handler.tmpl", "internal/health/handler.go"},
+		{"templates/init/docs/docs.tmpl", "docs/docs.go"},
 		{"templates/init/air.tmpl", ".air.toml"},
 		{"templates/init/Taskfile.tmpl", "Taskfile.yml"},
 		{"templates/init/taskw.tmpl", "taskw.yaml"},
@@ -126,26 +127,38 @@ func (g *InitGenerator) generateFile(projectPath, templatePath, outputPath strin
 	return nil
 }
 
-// runInitialGeneration runs taskw generate in the newly created project
+// runInitialGeneration runs go mod tidy and then task generate in the newly created project
 func (g *InitGenerator) runInitialGeneration(projectPath string) error {
+	// Check if go command is available
+	if !isCommandAvailable("go") {
+		return fmt.Errorf("go command not available in PATH, bro what?")
+	}
+
 	// Check if task command is available
 	if !isCommandAvailable("task") {
-		return fmt.Errorf("task command not available, please install Task runner")
+		return fmt.Errorf("task command not available, please install Task runner or run 'go install github.com/go-task/task/v3/cmd/task@latest'")
 	}
 
-	// Check if taskw command is available
-	if !isCommandAvailable("taskw") {
-		return fmt.Errorf("taskw command not available in PATH")
-	}
+	// Step 1: Run go mod tidy to resolve dependencies
+	fmt.Println("📦 Running go mod tidy to resolve dependencies...")
+	tidyCmd := exec.Command("go", "mod", "tidy")
+	tidyCmd.Dir = projectPath
 
-	// Change to project directory and run task generate
-	cmd := exec.Command("task", "generate")
-	cmd.Dir = projectPath
+	tidyOutput, err := tidyCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to run 'go mod tidy': %w\nOutput: %s", err, string(tidyOutput))
+	}
+	fmt.Println("✅ Dependencies resolved successfully")
+
+	// Step 2: Run task generate directly to create initial code
+	fmt.Println("🔧 Running task generate to create initial code...")
+	generateCmd := exec.Command("task", "generate")
+	generateCmd.Dir = projectPath
 
 	// Capture output for better error reporting
-	output, err := cmd.CombinedOutput()
+	generateOutput, err := generateCmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed to run 'task generate': %w\nOutput: %s", err, string(output))
+		return fmt.Errorf("failed to run 'task generate': %w\nOutput: %s", err, string(generateOutput))
 	}
 
 	fmt.Println("✅ Code generation completed successfully")

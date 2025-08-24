@@ -12,6 +12,9 @@
 # Test binary, built with `go test -c`
 *.test
 
+# Test logs
+test/**/*.log
+
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
@@ -62,3 +65,4 @@ bin/
 
 # Air tmp files
 tmp
+
