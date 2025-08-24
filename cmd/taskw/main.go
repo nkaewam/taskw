@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/nkaewam/taskw/internal/config"
+	"github.com/nkaewam/taskw/internal/generator"
 	"github.com/nkaewam/taskw/internal/scanner"
 )
 
@@ -226,10 +227,16 @@ func generateRoutes(s *scanner.Scanner, cfg *config.Config) {
 
 	outputPath := filepath.Join(cfg.Paths.OutputDir, cfg.Generation.Routes.OutputFile)
 	fmt.Printf("✅ Found %d handlers and %d routes\n", len(handlers), len(routes))
-	fmt.Printf("📝 Route generation will write to: %s\n", outputPath)
+	fmt.Printf("📝 Generating routes to: %s\n", outputPath)
 
-	// TODO: Implement actual route generation with templates
-	fmt.Println("⚠️  Route generation not implemented yet - this will be added in the next step")
+	// Generate routes using the RouteGenerator
+	routeGen := generator.NewRouteGenerator(cfg)
+	if err := routeGen.GenerateRoutes(handlers, routes); err != nil {
+		fmt.Printf("Error generating routes: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("🎉 Routes generated successfully!")
 }
 
 func generateDeps(s *scanner.Scanner, cfg *config.Config) {
@@ -252,10 +259,16 @@ func generateDeps(s *scanner.Scanner, cfg *config.Config) {
 
 	outputPath := filepath.Join(cfg.Paths.OutputDir, cfg.Generation.Dependencies.OutputFile)
 	fmt.Printf("✅ Found %d providers\n", len(providers))
-	fmt.Printf("📝 Dependency generation will write to: %s\n", outputPath)
+	fmt.Printf("📝 Generating dependencies to: %s\n", outputPath)
 
-	// TODO: Implement actual dependency generation with templates
-	fmt.Println("⚠️  Dependency generation not implemented yet - this will be added in the next step")
+	// Generate dependencies using the DependencyGenerator
+	depGen := generator.NewDependencyGenerator(cfg)
+	if err := depGen.GenerateDependencies(providers); err != nil {
+		fmt.Printf("Error generating dependencies: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("🎉 Dependencies generated successfully!")
 }
 
 func showHelp() {

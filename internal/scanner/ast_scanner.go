@@ -102,31 +102,83 @@ func (s *ASTScanner) extractHandler(fn *ast.FuncDecl, pkg, filePath string) *Han
 }
 
 // extractRoute parses @Router comments to extract route information
+// Supports multiple standard Swagger annotation formats:
+// - @Router /path [method]
+// - @Router "/path" [method]
+// - @router /path [method] (case insensitive)
 func (s *ASTScanner) extractRoute(fn *ast.FuncDecl, handler HandlerFunction) *RouteMapping {
 	if fn.Doc == nil {
 		return nil
 	}
 
-	// Regex to parse @Router /path [method]
-	routerRegex := regexp.MustCompile(`@Router\s+([^\s]+)\s+\[([^\]]+)\]`)
+	// Enhanced regex patterns for standard Swagger formats
+	routerPatterns := []*regexp.Regexp{
+		// Standard format: @Router /path [method]
+		regexp.MustCompile(`(?i)@Router\s+([^\s\[\]]+)\s+\[([^\]]+)\]`),
+		// Quoted path format: @Router "/path" [method]
+		regexp.MustCompile(`(?i)@Router\s+"([^"]+)"\s+\[([^\]]+)\]`),
+		// Alternative format: @Router /path method
+		regexp.MustCompile(`(?i)@Router\s+([^\s]+)\s+([A-Za-z]+)(?:\s|$)`),
+		// Gin-style format: @router /path [method]
+		regexp.MustCompile(`(?i)@router\s+([^\s\[\]]+)\s+\[([^\]]+)\]`),
+	}
 
 	for _, comment := range fn.Doc.List {
 		text := strings.TrimSpace(strings.TrimPrefix(comment.Text, "//"))
-		if matches := routerRegex.FindStringSubmatch(text); matches != nil {
-			path := matches[1]
-			method := strings.ToUpper(matches[2])
+		text = strings.TrimSpace(strings.TrimPrefix(text, "*")) // Support /** comments
 
-			return &RouteMapping{
-				MethodName: fn.Name.Name,
-				Path:       path,
-				HTTPMethod: method,
-				HandlerRef: fmt.Sprintf("%s.%s", strings.ToLower(handler.HandlerName[:len(handler.HandlerName)-7]), handler.FunctionName), // Remove "Handler" suffix
-				Package:    handler.Package,
+		for _, pattern := range routerPatterns {
+			if matches := pattern.FindStringSubmatch(text); matches != nil {
+				path := strings.Trim(matches[1], `"'`) // Remove quotes if present
+				method := strings.ToUpper(strings.TrimSpace(matches[2]))
+
+				// Validate HTTP method
+				if !s.isValidHTTPMethod(method) {
+					continue
+				}
+
+				return &RouteMapping{
+					MethodName: fn.Name.Name,
+					Path:       path,
+					HTTPMethod: method,
+					HandlerRef: s.generateHandlerRef(handler),
+					Package:    handler.Package,
+				}
 			}
 		}
 	}
 
 	return nil
+}
+
+// generateHandlerRef creates a proper handler reference
+func (s *ASTScanner) generateHandlerRef(handler HandlerFunction) string {
+	// Use package name as the base for handler reference
+	// e.g., "user" package becomes "userHandler"
+	handlerName := handler.Package + "Handler"
+
+	// Convert first letter to lowercase for field reference
+	if len(handlerName) > 0 {
+		handlerName = strings.ToLower(handlerName[:1]) + handlerName[1:]
+	}
+
+	return fmt.Sprintf("%s.%s", handlerName, handler.FunctionName)
+}
+
+// isValidHTTPMethod checks if the method is a valid HTTP method
+func (s *ASTScanner) isValidHTTPMethod(method string) bool {
+	validMethods := map[string]bool{
+		"GET":     true,
+		"POST":    true,
+		"PUT":     true,
+		"DELETE":  true,
+		"PATCH":   true,
+		"HEAD":    true,
+		"OPTIONS": true,
+		"TRACE":   true,
+		"CONNECT": true,
+	}
+	return validMethods[method]
 }
 
 // extractProvider checks if a function is a Wire provider function

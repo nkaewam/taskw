@@ -3,10 +3,10 @@ project:
   module: "github.com/example/ecommerce-api"
 paths:
   scan_dirs:
-    - "./internal/user"
-    - "./internal/product"
-    - "./internal/order"
-  output_dir: "./internal/api"
+    - "./example/internal/user"
+    - "./example/internal/product"
+    - "./example/internal/order"
+  output_dir: "./example/internal/api"
 generation:
   routes:
     enabled: true

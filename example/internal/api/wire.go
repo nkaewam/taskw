@@ -22,15 +22,20 @@ var ProviderSet = wire.NewSet(
 	// Server (manual)
 	ProvideServer,
 
-	// Generated providers will be added here by taskw
-	// Uncomment this line after running 'taskw generate deps':
-	// GeneratedProviderSet,
+	// Generated providers added by taskw
+	GeneratedProviderSet,
 )
 
 // InitializeServer initializes the complete server with all dependencies
-func InitializeServer() (*Server, *fiber.App, func(), error) {
+func InitializeServer() (*Server, error) {
 	wire.Build(ProviderSet)
-	return &Server{}, &fiber.App{}, nil, nil
+	return &Server{}, nil
+}
+
+// InitializeFiberApp initializes the Fiber app
+func InitializeFiberApp() *fiber.App {
+	wire.Build(provideFiberApp)
+	return &fiber.App{}
 }
 
 // provideLogger creates a new zap logger

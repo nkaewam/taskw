@@ -24,27 +24,27 @@ TaskW is a Go CLI tool that generates Fiber routes and Wire dependency injection
 
 ### 1.2 Scanner Implementation
 
-- [ ] **Route Scanner** - Extract @Router annotations from handler.go files
+- [x] **Route Scanner** - Extract @Router annotations from handler.go files
   - Parse `@Router /path [method]` comments
   - Identify handler functions with proper signatures `func (h *Handler) Method(c *fiber.Ctx) error`
   - Extract package information for imports
-- [ ] **Provider Scanner** - Find Provide\* functions across codebase
+- [x] **Provider Scanner** - Find Provide\* functions across codebase
   - Locate functions starting with `Provide*`
   - Extract return types and parameter dependencies
   - Map packages for proper import generation
 
 ### 1.3 Code Generation
 
-- [ ] **Route Generator** - Generate Fiber route registration code
+- [x] **Route Generator** - Generate Fiber route registration code ✅
 
-  - Create `routes_gen.go` with proper package and imports
-  - Generate route registration: `app.Get("/path", handler.Method)`
-  - Handle different HTTP methods (GET, POST, PUT, DELETE, etc.)
+  - Create `routes_gen.go` with proper package and imports ✅
+  - Generate route registration: `app.Get("/path", handler.Method)` ✅
+  - Handle different HTTP methods (GET, POST, PUT, DELETE, etc.) ✅
 
-- [ ] **Dependency Generator** - Generate Wire provider sets
-  - Create `dependencies_gen.go` with Wire imports
-  - Generate `var ProviderSet = wire.NewSet(...)` with all Provide\* functions
-  - Proper package imports for all providers
+- [x] **Dependency Generator** - Generate Wire provider sets ✅
+  - Create `dependencies_gen.go` with Wire imports ✅
+  - Generate `var ProviderSet = wire.NewSet(...)` with all Provide\* functions ✅
+  - Proper package imports for all providers ✅
 
 ### 1.4 Template System
 

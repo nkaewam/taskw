@@ -22,11 +22,13 @@ func main() {
 	fmt.Println("")
 
 	// Initialize the server using Wire (which uses taskw-generated providers)
-	server, app, cleanup, err := api.InitializeServer()
+	server, err := api.InitializeServer()
 	if err != nil {
 		log.Fatalf("❌ Failed to initialize server: %v\n\n💡 Did you run 'taskw generate' to create the required code?", err)
 	}
-	defer cleanup()
+
+	// Initialize Fiber app
+	app := api.InitializeFiberApp()
 
 	fmt.Println("✅ Server initialized successfully (taskw-generated code is working!)")
 
