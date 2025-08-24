@@ -40,6 +40,8 @@ func main() {
 		handleGenerate(args[1:], *configPath)
 	case "scan":
 		handleScan(*configPath)
+	case "clean":
+		handleClean(*configPath)
 	default:
 		fmt.Printf("Error: unknown command '%s'\n", command)
 		showUsage()
@@ -194,6 +196,106 @@ func handleScan(configPath string) {
 	}
 }
 
+func handleClean(configPath string) {
+	cfg, err := config.LoadConfig(configPath)
+	if err != nil {
+		fmt.Printf("Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("🧹 Cleaning generated files...")
+
+	var deletedFiles []string
+	var skippedFiles []string
+
+	// Clean routes file
+	if cfg.Generation.Routes.Enabled {
+		routesPath := filepath.Join(cfg.Paths.OutputDir, cfg.Generation.Routes.OutputFile)
+		if deleted, err := deleteIfExists(routesPath); err != nil {
+			fmt.Printf("❌ Error deleting %s: %v\n", routesPath, err)
+		} else if deleted {
+			deletedFiles = append(deletedFiles, routesPath)
+		} else {
+			skippedFiles = append(skippedFiles, routesPath)
+		}
+	}
+
+	// Clean dependencies file
+	if cfg.Generation.Dependencies.Enabled {
+		depsPath := filepath.Join(cfg.Paths.OutputDir, cfg.Generation.Dependencies.OutputFile)
+		if deleted, err := deleteIfExists(depsPath); err != nil {
+			fmt.Printf("❌ Error deleting %s: %v\n", depsPath, err)
+		} else if deleted {
+			deletedFiles = append(deletedFiles, depsPath)
+		} else {
+			skippedFiles = append(skippedFiles, depsPath)
+		}
+	}
+
+	// Clean swagger documentation
+	docsDir := "docs"
+	swaggerFiles := []string{
+		filepath.Join(docsDir, "docs.go"),
+		filepath.Join(docsDir, "swagger.json"),
+		filepath.Join(docsDir, "swagger.yaml"),
+	}
+
+	for _, swaggerFile := range swaggerFiles {
+		if deleted, err := deleteIfExists(swaggerFile); err != nil {
+			fmt.Printf("❌ Error deleting %s: %v\n", swaggerFile, err)
+		} else if deleted {
+			deletedFiles = append(deletedFiles, swaggerFile)
+		} else {
+			skippedFiles = append(skippedFiles, swaggerFile)
+		}
+	}
+
+	// Try to remove docs directory if it's empty
+	if _, err := os.Stat(docsDir); err == nil {
+		if err := os.Remove(docsDir); err == nil {
+			deletedFiles = append(deletedFiles, docsDir+"/")
+		}
+		// Ignore error if directory is not empty - that's fine
+	}
+
+	// Report results
+	if len(deletedFiles) > 0 {
+		fmt.Printf("✅ Deleted %d files:\n", len(deletedFiles))
+		for _, file := range deletedFiles {
+			fmt.Printf("   🗑️  %s\n", file)
+		}
+	}
+
+	if len(skippedFiles) > 0 {
+		fmt.Printf("ℹ️  Skipped %d files (not found):\n", len(skippedFiles))
+		for _, file := range skippedFiles {
+			fmt.Printf("   📄 %s\n", file)
+		}
+	}
+
+	if len(deletedFiles) == 0 && len(skippedFiles) == 0 {
+		fmt.Println("ℹ️  No generated files found to clean")
+	} else {
+		fmt.Println("🎉 Clean completed!")
+	}
+}
+
+// deleteIfExists deletes a file if it exists, returns (deleted, error)
+func deleteIfExists(path string) (bool, error) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return false, nil // File doesn't exist, not an error
+	} else if err != nil {
+		return false, err // Some other error checking the file
+	}
+
+	// File exists, try to delete it
+	if err := os.Remove(path); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
 func generateAll(s *scanner.Scanner, cfg *config.Config) {
 	if cfg.Generation.Routes.Enabled {
 		generateRoutes(s, cfg)
@@ -345,6 +447,7 @@ Usage:
   taskw init                    Create taskw.yaml config and .taskwignore
   taskw generate [target]       Generate code (all, routes, deps)
   taskw scan                    Show what will be generated
+  taskw clean                   Remove all generated files
 
 Flags:
   --config path                 Path to config file (default: taskw.yaml)
@@ -356,6 +459,7 @@ Examples:
   taskw generate routes         # Generate only routes
   taskw generate deps           # Generate only dependencies  
   taskw scan                    # Preview what will be generated
+  taskw clean                   # Remove all generated files
 
 Targets:
   all                          Generate routes and dependencies (default)

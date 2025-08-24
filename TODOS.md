@@ -48,7 +48,7 @@ TaskW is a Go CLI tool that generates Fiber routes and Wire dependency injection
 
 ### 1.4 Template System
 
-- [ ] **Go Templates** - Create templates for code generation
+- [x] **Go Templates** - Create templates for code generation
   - `templates/routes.tmpl` for Fiber route registration
   - `templates/dependencies.tmpl` for Wire provider sets
   - Templates should handle imports automatically
