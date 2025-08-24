@@ -1,39 +1,67 @@
 # TaskW Ignore Patterns
-# This file specifies which files and directories to ignore when scanning for handlers and providers
-# Patterns follow gitignore-style glob syntax
+# This file tells taskw which files and directories to exclude from scanning
 
-# Dependencies and vendor code
-vendor/**
-node_modules/**
+# Test files
+**/*_test.go
+**/testdata/**
+**/test/**
+**/*_mock.go
 
 # Build artifacts
-bin/**
-build/**
-dist/**
-*.exe
-*.dll
-*.so
-*.dylib
+**/bin/**
+**/build/**
+**/dist/**
+target/
 
-# Test files and test data
-**/*_test.go
-**/*_mock.go
-**/testdata/**
-**/mocks/**
+# Dependencies
+**/vendor/**
+**/node_modules/**
 
-# IDE and tool files
-.git/**
-.vscode/**
-.idea/**
-*.swp
-*.swo
-*~
+# Generated files (except the ones taskw generates)
+**/*_gen.go
+!routes_gen.go
+!dependencies_gen.go
+**/wire_gen.go
 
-# Logs and temporary files
-*.log
-*.tmp
-tmp/**
+# IDE and editor files
+.vscode/
+.idea/
+**/*.swp
+**/*.swo
+**/*~
 
-# Generated files (add your specific patterns)
-# **/*_gen.go
-# **/generated/**
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+**/*.tmp
+**/*.temp
+**/*.log
+
+# Git
+.git/
+.gitignore
+
+# Documentation (optional)
+docs/
+*.md
+!README.md
+
+# Configuration files (optional)
+*.yaml
+*.yml
+*.json
+*.toml
+!taskw.yaml
+
+# Main/cmd files that don't contain handlers
+cmd/
+main.go
+
+# Models and shared types (no handlers here)
+**/models/**
+**/types/**
+**/errors/**
+**/utils/**
+**/config/**

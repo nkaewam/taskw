@@ -1,0 +1,16 @@
+version: "1.0"
+project:
+  module: "github.com/example/ecommerce-api"
+paths:
+  scan_dirs:
+    - "./internal/user"
+    - "./internal/product"
+    - "./internal/order"
+  output_dir: "./internal/api"
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
