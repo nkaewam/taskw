@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -75,7 +78,6 @@ func init() {
 
 	// Add flags to init command
 	initCmd.Flags().Bool("config-only", false, "Only create configuration files (taskw.yaml and .taskwignore)")
-	initCmd.Flags().StringP("module", "m", "", "Go module name (e.g., github.com/user/project)")
 
 	// Setup generate subcommands
 	generateCmd.AddCommand(generateAllCmd)
@@ -98,7 +100,7 @@ func main() {
 }
 
 var initCmd = &cobra.Command{
-	Use:   "init [project-name]",
+	Use:   "init [module]",
 	Short: "Initialize a new TaskW project with full scaffold",
 	Long: `Initialize a new TaskW project by scaffolding:
 - cmd/server/main.go - Main server entry point with Swagger docs
@@ -110,9 +112,12 @@ var initCmd = &cobra.Command{
 - taskw.yaml - TaskW configuration
 - go.mod - Go module file
 
+Requires a full Go module path (e.g., github.com/user/project-name).
+
 Examples:
-  taskw init my-api                    # Create project in ./my-api directory
-  taskw init --config-only             # Only create taskw.yaml and .taskwignore`,
+  taskw init                                    # Interactive prompt for module
+  taskw init github.com/user/my-api             # Create project with specified module
+  taskw init --config-only                      # Only create taskw.yaml and .taskwignore`,
 	Run: func(cmd *cobra.Command, args []string) {
 		handleNewInit(cmd, args)
 	},
@@ -120,7 +125,6 @@ Examples:
 
 func handleNewInit(cmd *cobra.Command, args []string) {
 	configOnly, _ := cmd.Flags().GetBool("config-only")
-	module, _ := cmd.Flags().GetString("module")
 
 	if configOnly {
 		handleConfigInit(configPath)
@@ -128,22 +132,27 @@ func handleNewInit(cmd *cobra.Command, args []string) {
 	}
 
 	// Full project scaffolding
+	var module string
 	if len(args) == 0 {
-		fmt.Println("Error: project name is required")
-		fmt.Println("Usage: taskw init [project-name]")
-		fmt.Println("   or: taskw init --config-only")
-		os.Exit(1)
+		// Interactive prompt for module
+		var err error
+		module, err = promptForModule()
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		module = args[0]
+		// Validate module format
+		if err := validateModule(module); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
-	projectName := args[0]
+	// Extract project name from module path
+	projectName := extractProjectName(module)
 	projectPath := filepath.Join(".", projectName)
-
-	// Determine module name
-	if module == "" {
-		module = fmt.Sprintf("github.com/example/%s", projectName)
-		fmt.Printf("Using default module name: %s\n", module)
-		fmt.Println("Use --module flag to specify a different module name")
-	}
 
 	// Validate project directory
 	initGen := generator.NewInitGenerator()
@@ -216,6 +225,96 @@ func handleConfigInit(configPath string) {
 	fmt.Println("  2. Edit .taskwignore to exclude files/directories from scanning")
 	fmt.Println("  3. Run 'taskw scan' to preview what will be generated")
 	fmt.Println("  4. Run 'taskw generate' to generate code")
+}
+
+// promptForModule interactively prompts for a Go module path
+func promptForModule() (string, error) {
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Println()
+	fmt.Println("🚀 Let's create a new TaskW project!")
+	fmt.Println()
+
+	for {
+		fmt.Print("Enter Go module path (e.g., github.com/username/my-awesome-api): ")
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return "", fmt.Errorf("failed to read input: %w", err)
+		}
+
+		module := strings.TrimSpace(input)
+		if module == "" {
+			fmt.Println("❌ Module path cannot be empty. Please try again.")
+			continue
+		}
+
+		if err := validateModule(module); err != nil {
+			fmt.Printf("❌ %v Please try again.\n", err)
+			continue
+		}
+
+		projectName := extractProjectName(module)
+		fmt.Printf("✅ Great! Creating project '%s' with module '%s'\n", projectName, module)
+		return module, nil
+	}
+}
+
+// validateModule validates that the module path is a proper Go module format
+func validateModule(module string) error {
+	// Basic module format validation
+	if !strings.Contains(module, "/") {
+		return fmt.Errorf("module must contain at least one '/' (e.g., github.com/user/project)")
+	}
+
+	// Check for valid module path format
+	modulePattern := regexp.MustCompile(`^[a-zA-Z0-9.-]+(\.[a-zA-Z]{2,})?(/[a-zA-Z0-9._-]+)+$`)
+	if !modulePattern.MatchString(module) {
+		return fmt.Errorf("invalid module format. Use format like: github.com/user/project-name")
+	}
+
+	// Extract and validate project name (last part of module)
+	projectName := extractProjectName(module)
+	return validateProjectName(projectName)
+}
+
+// extractProjectName extracts the project name from a module path
+func extractProjectName(module string) string {
+	parts := strings.Split(module, "/")
+	return parts[len(parts)-1]
+}
+
+// validateProjectName validates that the project name follows slug-case format
+func validateProjectName(name string) error {
+	// Check for slug-case format: lowercase letters, numbers, and hyphens only
+	// Cannot start or end with hyphen, cannot have consecutive hyphens
+	slugPattern := regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+
+	if !slugPattern.MatchString(name) {
+		return fmt.Errorf("project name (last part of module) must be in slug-case (lowercase letters, numbers, and hyphens only, e.g., 'my-api')")
+	}
+
+	// Additional validation rules
+	if len(name) < 2 {
+		return fmt.Errorf("project name must be at least 2 characters long")
+	}
+
+	if len(name) > 50 {
+		return fmt.Errorf("project name must be no longer than 50 characters")
+	}
+
+	// Check for reserved names
+	reservedNames := []string{
+		"api", "app", "main", "src", "lib", "bin", "cmd", "internal",
+		"pkg", "test", "tests", "doc", "docs", "build", "dist",
+	}
+
+	for _, reserved := range reservedNames {
+		if name == reserved {
+			return fmt.Errorf("'%s' is a reserved name, please choose a different project name", name)
+		}
+	}
+
+	return nil
 }
 
 var generateCmd = &cobra.Command{
