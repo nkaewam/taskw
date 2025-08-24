@@ -1,0 +1,39 @@
+# TaskW Ignore Patterns
+# This file specifies which files and directories to ignore when scanning for handlers and providers
+# Patterns follow gitignore-style glob syntax
+
+# Dependencies and vendor code
+vendor/**
+node_modules/**
+
+# Build artifacts
+bin/**
+build/**
+dist/**
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test files and test data
+**/*_test.go
+**/*_mock.go
+**/testdata/**
+**/mocks/**
+
+# IDE and tool files
+.git/**
+.vscode/**
+.idea/**
+*.swp
+*.swo
+*~
+
+# Logs and temporary files
+*.log
+*.tmp
+tmp/**
+
+# Generated files (add your specific patterns)
+# **/*_gen.go
+# **/generated/**

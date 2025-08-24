@@ -1,0 +1,15 @@
+version: "1.0"
+
+paths:
+  # Directories to scan for handlers/providers
+  scan_dirs: [.]
+  # Where to generate files
+  output_dir: "."
+
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"

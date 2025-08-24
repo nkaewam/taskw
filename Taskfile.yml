@@ -1,0 +1,19 @@
+version: '3'
+
+vars:
+  BINARY_NAME: taskw
+  BUILD_DIR: bin
+  MAIN_PATH: ./cmd/taskw
+
+tasks:
+  build:
+    desc: Build the taskw binary
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PATH}}
+    sources:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+    generates:
+      - "{{.BUILD_DIR}}/{{.BINARY_NAME}}"
