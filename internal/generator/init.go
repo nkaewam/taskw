@@ -4,12 +4,13 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/template"
 )
 
-//go:embed templates/init/*.tmpl
+//go:embed templates/init
 var initTemplateFS embed.FS
 
 // InitGenerator creates new projects from templates
@@ -75,6 +76,13 @@ func (g *InitGenerator) InitProject(projectPath, module, projectName string) err
 		fmt.Printf("Created directory: %s/\n", dir)
 	}
 
+	// Automatically generate code after scaffolding
+	if err := g.runInitialGeneration(projectPath); err != nil {
+		// Don't fail the entire init process, just warn the user
+		fmt.Printf("Warning: Failed to run initial code generation: %v\n", err)
+		fmt.Println("You can run 'task generate' manually after 'go mod tidy'")
+	}
+
 	return nil
 }
 
@@ -111,6 +119,38 @@ func (g *InitGenerator) generateFile(projectPath, templatePath, outputPath strin
 	}
 
 	return nil
+}
+
+// runInitialGeneration runs taskw generate in the newly created project
+func (g *InitGenerator) runInitialGeneration(projectPath string) error {
+	// Check if task command is available
+	if !isCommandAvailable("task") {
+		return fmt.Errorf("task command not available, please install Task runner")
+	}
+
+	// Check if taskw command is available
+	if !isCommandAvailable("taskw") {
+		return fmt.Errorf("taskw command not available in PATH")
+	}
+
+	// Change to project directory and run task generate
+	cmd := exec.Command("task", "generate")
+	cmd.Dir = projectPath
+
+	// Capture output for better error reporting
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to run 'task generate': %w\nOutput: %s", err, string(output))
+	}
+
+	fmt.Println("✅ Code generation completed successfully")
+	return nil
+}
+
+// isCommandAvailable checks if a command is available in PATH
+func isCommandAvailable(name string) bool {
+	_, err := exec.LookPath(name)
+	return err == nil
 }
 
 // ValidateProjectPath checks if the project path is valid for initialization
