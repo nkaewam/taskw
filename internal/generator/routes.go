@@ -241,6 +241,5 @@ func writeGeneratedFile(path, content string) error {
 		return fmt.Errorf("failed to write file %s: %w", path, err)
 	}
 
-	fmt.Printf("✅ Generated: %s\n", path)
 	return nil
 }

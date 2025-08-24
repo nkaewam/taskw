@@ -1,8 +1,8 @@
-# TaskW MVP Development TODOs
+# Taskw MVP Development TODOs
 
 ## Project Status
 
-TaskW is a Go CLI tool that generates Fiber routes and Wire dependency injection code from annotations. The goal is to create an MVP that can launch and provide real value to Go developers using Fiber + Wire + Swaggo.
+Taskw is a Go CLI tool that generates Fiber routes and Wire dependency injection code from annotations. The goal is to create an MVP that can launch and provide real value to Go developers using Fiber + Wire + Swaggo.
 
 **Current State:**
 
@@ -114,7 +114,7 @@ TaskW is a Go CLI tool that generates Fiber routes and Wire dependency injection
 
 - [ ] **End-to-End Test** - Full workflow testing
   - Create sample Go project with handlers and providers
-  - Run TaskW generate command
+  - Run Taskw generate command
   - Verify generated code compiles and runs
   - Test with different project structures
 

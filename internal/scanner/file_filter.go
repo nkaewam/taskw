@@ -247,7 +247,7 @@ func (f *FileFilter) wildcardMatch(pattern, str string) bool {
 
 // CreateDefaultTaskwIgnore creates a default .taskwignore file
 func (f *FileFilter) CreateDefaultTaskwIgnore() error {
-	content := `# TaskW Ignore Patterns
+	content := `# Taskw Ignore Patterns
 # This file specifies which files and directories to ignore when scanning for handlers and providers
 # Patterns follow gitignore-style glob syntax
 
