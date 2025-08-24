@@ -85,8 +85,7 @@ func (g *InitGenerator) InitProject(projectPath, module, projectName string) err
 	// Automatically generate code after scaffolding
 	if err := g.runInitialGeneration(projectPath); err != nil {
 		// Don't fail the entire init process, just warn the user
-		fmt.Printf("Warning: Failed to run initial code generation: %v\n", err)
-		fmt.Println("You can run 'task generate' manually after 'go mod tidy'")
+		return fmt.Errorf("warning: Failed to run initial code generation: %v", err)
 	}
 
 	return nil

@@ -28,6 +28,7 @@ jobs:
         mkdir -p bin
         go build -o bin/taskw main.go
         chmod +x bin/taskw
+        echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
         
     - name: Run tests
       run: go test -v ./...
