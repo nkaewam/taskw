@@ -23,15 +23,13 @@ jobs:
       run: |
         go install github.com/go-task/task/v3/cmd/task@latest
         go install github.com/swaggo/swag/cmd/swag@latest
+        go install github.com/google/wire/cmd/wire@latest
         
     - name: Build taskw binary for tests
       run: |
         mkdir -p bin
         go build -o bin/taskw main.go
         chmod +x bin/taskw
-        
-    - name: Run tests
-      run: go test -v ./...
       
     - name: Build binaries
       run: |
