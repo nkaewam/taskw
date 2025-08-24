@@ -4,6 +4,7 @@ package api
 
 import (
 	"github.com/example/ecommerce-api/internal/health"
+	"github.com/example/ecommerce-api/internal/logger"
 	"github.com/example/ecommerce-api/internal/order"
 	"github.com/example/ecommerce-api/internal/product"
 	"github.com/example/ecommerce-api/internal/user"
@@ -17,6 +18,9 @@ var GeneratedProviderSet = wire.NewSet(
 	health.ProvideHandler,
 	health.ProvideRepository,
 	health.ProvideService,
+
+	// logger module providers
+	logger.ProvideLogger,
 
 	// order module providers
 	order.ProvideHandler,

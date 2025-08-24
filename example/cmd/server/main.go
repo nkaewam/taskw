@@ -51,7 +51,7 @@ func main() {
 	}
 
 	// Initialize Fiber app
-	app := api.InitializeFiberApp()
+	app := api.ProvideFiberApp()
 
 	fmt.Println("✅ Server initialized successfully (taskw-generated code is working!)")
 

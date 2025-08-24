@@ -8,19 +8,18 @@ package api
 
 import (
 	"github.com/example/ecommerce-api/internal/health"
+	"github.com/example/ecommerce-api/internal/logger"
 	"github.com/example/ecommerce-api/internal/order"
 	"github.com/example/ecommerce-api/internal/product"
 	"github.com/example/ecommerce-api/internal/user"
-	"github.com/gofiber/fiber/v2"
 	"github.com/google/wire"
-	"go.uber.org/zap"
 )
 
 // Injectors from wire.go:
 
 // InitializeServer initializes the complete server with all dependencies
 func InitializeServer() (*Server, error) {
-	logger, err := provideLogger()
+	zapLogger, err := logger.ProvideLogger()
 	if err != nil {
 		return nil, err
 	}
@@ -38,14 +37,8 @@ func InitializeServer() (*Server, error) {
 	orderUserService := ProvideUserServiceAdapter(userService)
 	orderService := order.ProvideService(orderRepository, orderProductService, orderUserService)
 	orderHandler := order.ProvideHandler(orderService)
-	server := ProvideServer(logger, handler, userHandler, productHandler, orderHandler)
+	server := ProvideServer(zapLogger, handler, userHandler, productHandler, orderHandler)
 	return server, nil
-}
-
-// InitializeFiberApp initializes the Fiber app
-func InitializeFiberApp() *fiber.App {
-	app := provideFiberApp()
-	return app
 }
 
 // wire.go:
@@ -54,38 +47,11 @@ func InitializeFiberApp() *fiber.App {
 // This only contains infrastructure providers - taskw will add the rest
 var ProviderSet = wire.NewSet(
 
-	provideLogger,
-	provideFiberApp,
+	ProvideServer,
+	ProvideFiberApp,
 
 	ProvideProductServiceAdapter,
 	ProvideUserServiceAdapter,
 
-	ProvideServer,
-
 	GeneratedProviderSet,
 )
-
-// provideLogger creates a new zap logger
-func provideLogger() (*zap.Logger, error) {
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		return nil, err
-	}
-	return logger, nil
-}
-
-// provideFiberApp creates a new Fiber application
-func provideFiberApp() *fiber.App {
-	return fiber.New(fiber.Config{
-		AppName: "E-commerce API",
-		ErrorHandler: func(c *fiber.Ctx, err error) error {
-			code := fiber.StatusInternalServerError
-			if e, ok := err.(*fiber.Error); ok {
-				code = e.Code
-			}
-			return c.Status(code).JSON(fiber.Map{
-				"error": err.Error(),
-			})
-		},
-	})
-}
