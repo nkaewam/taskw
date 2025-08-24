@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/nkaewam/taskw/internal/config"
@@ -200,6 +201,72 @@ func generateAll(s *scanner.Scanner, cfg *config.Config) {
 	if cfg.Generation.Dependencies.Enabled {
 		generateDeps(s, cfg)
 	}
+
+	// Generate Swagger documentation
+	generateSwagger(cfg)
+}
+
+func generateSwagger(cfg *config.Config) {
+	fmt.Println("🔄 Generating Swagger documentation...")
+
+	// Check if swag command is available
+	if !isCommandAvailable("swag") {
+		fmt.Println("⚠️  swag command not found. Installing...")
+		if err := installSwag(); err != nil {
+			fmt.Printf("❌ Failed to install swag: %v\n", err)
+			fmt.Println("💡 Please install manually: go install github.com/swaggo/swag/cmd/swag@latest")
+			return
+		}
+		fmt.Println("✅ swag installed successfully")
+	}
+
+	// Generate swagger docs
+	// Look for main.go in common locations
+	mainFile := findMainFile()
+	if mainFile == "" {
+		fmt.Println("⚠️  Could not find main.go file for swagger generation")
+		return
+	}
+
+	docsDir := "docs"
+	cmd := exec.Command("swag", "init", "-g", mainFile, "-o", docsDir)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("❌ Error generating swagger docs: %v\n", err)
+		fmt.Printf("Output: %s\n", string(output))
+		return
+	}
+
+	fmt.Printf("✅ Generated Swagger documentation in %s/\n", docsDir)
+	fmt.Println("🎉 Swagger generation completed!")
+}
+
+func isCommandAvailable(name string) bool {
+	_, err := exec.LookPath(name)
+	return err == nil
+}
+
+func installSwag() error {
+	cmd := exec.Command("go", "install", "github.com/swaggo/swag/cmd/swag@latest")
+	return cmd.Run()
+}
+
+func findMainFile() string {
+	// Common locations for main.go
+	candidates := []string{
+		"./cmd/server/main.go",
+		"./cmd/main.go",
+		"./main.go",
+	}
+
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+
+	return ""
 }
 
 func generateRoutes(s *scanner.Scanner, cfg *config.Config) {

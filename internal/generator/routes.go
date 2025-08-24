@@ -83,23 +83,32 @@ func (g *RouteGenerator) generateImports(handlers []scanner.HandlerFunction, rou
 
 // generateRouteFileContent creates the actual file content
 func (g *RouteGenerator) generateRouteFileContent(routesByPackage map[string][]scanner.RouteMapping, imports []string) (string, error) {
-	// Flatten and organize routes by API groups
-	apiGroups := g.organizeRoutesByAPIGroups(routesByPackage)
+	// Flatten routes from all packages into a single slice
+	var allRoutes []scanner.RouteMapping
+	for _, routes := range routesByPackage {
+		allRoutes = append(allRoutes, routes...)
+	}
+
+	// Sort routes by path for consistent output
+	sort.Slice(allRoutes, func(i, j int) bool {
+		if allRoutes[i].Path == allRoutes[j].Path {
+			return allRoutes[i].HTTPMethod < allRoutes[j].HTTPMethod
+		}
+		return allRoutes[i].Path < allRoutes[j].Path
+	})
 
 	data := struct {
 		Package         string
 		Imports         []string
-		APIGroups       map[string][]scanner.RouteMapping
+		Routes          []scanner.RouteMapping
 		GetRouterMethod func(method string) string
 		GetHandlerRef   func(pkg, handlerRef string) string
-		GetRelativePath func(fullPath, prefix string) string
 	}{
 		Package:         "api",
 		Imports:         imports,
-		APIGroups:       apiGroups,
+		Routes:          allRoutes,
 		GetRouterMethod: g.getRouterMethod,
 		GetHandlerRef:   g.getHandlerRef,
-		GetRelativePath: g.getRelativePath,
 	}
 
 	tmpl, err := template.New("routes").Parse(routeTemplate)
@@ -237,13 +246,8 @@ import (
 
 // RegisterRoutes registers all HTTP routes with the Fiber app
 func (s *Server) RegisterRoutes(app *fiber.App) {
-	{{- range $prefix, $routes := .APIGroups}}
-
-	// {{$prefix}} API routes
-	{{if eq $prefix "/api/v1"}}api{{else}}group{{end}} := app.Group("{{$prefix}}")
-	{{- range $routes}}
-	{{if eq $prefix "/api/v1"}}api{{else}}group{{end}}.{{call $.GetRouterMethod .HTTPMethod}}("{{call $.GetRelativePath .Path $prefix}}", {{call $.GetHandlerRef .Package .HandlerRef}})
-	{{- end}}
+	{{- range $routes := .Routes}}
+	app.{{call $.GetRouterMethod .HTTPMethod}}("{{.Path}}", {{call $.GetHandlerRef .Package .HandlerRef}})
 	{{- end}}
 
 	s.logger.Info("All routes registered successfully")

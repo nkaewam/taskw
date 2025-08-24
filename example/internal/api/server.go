@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/example/ecommerce-api/internal/health"
 	"github.com/example/ecommerce-api/internal/order"
 	"github.com/example/ecommerce-api/internal/product"
 	"github.com/example/ecommerce-api/internal/user"
@@ -10,6 +11,7 @@ import (
 // Server holds all the handlers and dependencies
 type Server struct {
 	logger         *zap.Logger
+	healthHandler  *health.Handler
 	userHandler    *user.Handler
 	productHandler *product.Handler
 	orderHandler   *order.Handler
@@ -18,12 +20,14 @@ type Server struct {
 // ProvideServer creates a new server with all dependencies
 func ProvideServer(
 	logger *zap.Logger,
+	healthHandler *health.Handler,
 	userHandler *user.Handler,
 	productHandler *product.Handler,
 	orderHandler *order.Handler,
 ) *Server {
 	return &Server{
 		logger:         logger,
+		healthHandler:  healthHandler,
 		userHandler:    userHandler,
 		productHandler: productHandler,
 		orderHandler:   orderHandler,

@@ -59,3 +59,6 @@ bin/
 
 # Taskfile metadata
 .task
+
+# Air tmp files
+tmp

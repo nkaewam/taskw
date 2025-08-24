@@ -7,6 +7,7 @@
 package api
 
 import (
+	"github.com/example/ecommerce-api/internal/health"
 	"github.com/example/ecommerce-api/internal/order"
 	"github.com/example/ecommerce-api/internal/product"
 	"github.com/example/ecommerce-api/internal/user"
@@ -23,18 +24,21 @@ func InitializeServer() (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	repository := user.ProvideRepository()
-	service := user.ProvideService(repository)
-	handler := user.ProvideHandler(service)
+	repository := health.ProvideRepository()
+	service := health.ProvideService(repository)
+	handler := health.ProvideHandler(service)
+	userRepository := user.ProvideRepository()
+	userService := user.ProvideService(userRepository)
+	userHandler := user.ProvideHandler(userService)
 	productRepository := product.ProvideRepository()
 	productService := product.ProvideService(productRepository)
 	productHandler := product.ProvideHandler(productService)
 	orderRepository := order.ProvideRepository()
 	orderProductService := ProvideProductServiceAdapter(productService)
-	userService := ProvideUserServiceAdapter(service)
-	orderService := order.ProvideService(orderRepository, orderProductService, userService)
+	orderUserService := ProvideUserServiceAdapter(userService)
+	orderService := order.ProvideService(orderRepository, orderProductService, orderUserService)
 	orderHandler := order.ProvideHandler(orderService)
-	server := ProvideServer(logger, handler, productHandler, orderHandler)
+	server := ProvideServer(logger, handler, userHandler, productHandler, orderHandler)
 	return server, nil
 }
 

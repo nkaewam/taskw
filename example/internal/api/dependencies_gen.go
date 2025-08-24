@@ -3,6 +3,7 @@
 package api
 
 import (
+	"github.com/example/ecommerce-api/internal/health"
 	"github.com/example/ecommerce-api/internal/order"
 	"github.com/example/ecommerce-api/internal/product"
 	"github.com/example/ecommerce-api/internal/user"
@@ -11,6 +12,11 @@ import (
 
 // GeneratedProviderSet contains all discovered Provide* functions
 var GeneratedProviderSet = wire.NewSet(
+
+	// health module providers
+	health.ProvideHandler,
+	health.ProvideRepository,
+	health.ProvideService,
 
 	// order module providers
 	order.ProvideHandler,
