@@ -9,8 +9,21 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
     steps:
     - uses: actions/checkout@v4
     
@@ -19,14 +32,32 @@ jobs:
       with:
         go-version: '1.24.1'
         
-    - name: Build binaries
+    - name: Build binary
       run: |
-        # Build for multiple platforms
-        GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o taskw-linux-amd64 main.go
-        GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o taskw-linux-arm64 main.go
-        GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o taskw-darwin-amd64 main.go
-        GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o taskw-darwin-arm64 main.go
-        GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o taskw-windows-amd64.exe main.go
+        BINARY_NAME="taskw-${{ matrix.goos }}-${{ matrix.goarch }}"
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          BINARY_NAME="${BINARY_NAME}.exe"
+        fi
+        GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="-s -w" -o ${BINARY_NAME} main.go
+        
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: taskw-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: taskw-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }}
+        
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./artifacts
+        
+    - name: Move artifacts to root
+      run: |
+        find ./artifacts -name "taskw-*" -type f -exec mv {} . \;
         
     - name: Create Release
       uses: softprops/action-gh-release@v1

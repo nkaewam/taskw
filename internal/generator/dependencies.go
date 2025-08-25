@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -74,24 +75,16 @@ func (g *DependencyGenerator) generateImports(providers []scanner.ProviderFuncti
 
 	// Determine the output package name from the output directory
 	outputPackage := g.getOutputPackageName()
-	outputDir := g.config.Paths.OutputDir
 
 	// Collect unique packages that need to be imported
 	packageSet := make(map[string]bool)
 	for _, provider := range providers {
 		if provider.Package != "" && provider.Package != outputPackage {
-			var importPath string
-
-			// Check if we're generating for CLI and the provider is a CLI subpackage
-			if strings.Contains(outputDir, "/cli") && isCLISubpackage(provider.Package) {
-				// For CLI subpackages, use the full CLI path
-				importPath = fmt.Sprintf(`"%s/internal/cli/%s"`, g.config.Project.Module, provider.Package)
-			} else {
-				// For other packages (like config), use the root internal path
-				importPath = fmt.Sprintf(`"%s/internal/%s"`, g.config.Project.Module, provider.Package)
+			// Derive the import path from the file path instead of making assumptions
+			importPath := g.deriveImportPath(provider.FilePath)
+			if importPath != "" {
+				packageSet[fmt.Sprintf(`"%s"`, importPath)] = true
 			}
-
-			packageSet[importPath] = true
 		}
 	}
 
@@ -104,15 +97,50 @@ func (g *DependencyGenerator) generateImports(providers []scanner.ProviderFuncti
 	return imports
 }
 
-// isCLISubpackage checks if a package is a CLI subpackage
-func isCLISubpackage(pkg string) bool {
-	cliPackages := []string{"clean", "file", "generation", "project", "scan", "ui"}
-	for _, cliPkg := range cliPackages {
-		if pkg == cliPkg {
-			return true
-		}
+// deriveImportPath derives the full import path from a file path without hardcoded assumptions
+func (g *DependencyGenerator) deriveImportPath(filePath string) string {
+	// Get the directory containing the Go file
+	dir := filepath.Dir(filePath)
+
+	// Get current working directory to establish project root
+	cwd, err := os.Getwd()
+	if err != nil {
+		// Fallback: use the path as-is and clean it up
+		dir = filepath.Clean(dir)
+		dir = filepath.ToSlash(dir)
+		dir = strings.TrimPrefix(dir, "./")
+		return fmt.Sprintf("%s/%s", g.config.Project.Module, dir)
 	}
-	return false
+
+	// Convert to absolute path if relative
+	if !filepath.IsAbs(dir) {
+		dir = filepath.Join(cwd, dir)
+	}
+
+	// Make the directory path relative to the project root (cwd)
+	relDir, err := filepath.Rel(cwd, dir)
+	if err != nil {
+		// Fallback: clean up the original path
+		dir = filepath.Clean(filepath.Dir(filePath))
+		dir = filepath.ToSlash(dir)
+		dir = strings.TrimPrefix(dir, "./")
+		return fmt.Sprintf("%s/%s", g.config.Project.Module, dir)
+	}
+
+	// Normalize path separators and clean up
+	relDir = filepath.ToSlash(relDir)
+	relDir = filepath.Clean(relDir)
+
+	// Remove any current directory references
+	if relDir == "." {
+		relDir = ""
+	}
+
+	// Construct the full import path with the module
+	if relDir == "" {
+		return g.config.Project.Module
+	}
+	return fmt.Sprintf("%s/%s", g.config.Project.Module, relDir)
 }
 
 // generateDependencyFileContent creates the actual file content
