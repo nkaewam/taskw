@@ -5,12 +5,14 @@ This directory contains comprehensive end-to-end tests for Taskw that verify the
 ## Test Cases
 
 ### 1. Project Initialization (`01_init_test.go`)
+
 **Scenario**: Developer creates a new Taskw project from scratch
 
 **Test Steps**:
+
 1. Run `taskw init` with a Go module path
 2. Verify all scaffolded files are created correctly
-3. Check go.mod has correct module and dependencies  
+3. Check go.mod has correct module and dependencies
 4. Validate taskw.yaml configuration
 5. Verify health handler template content
 6. Check .taskwignore patterns
@@ -20,9 +22,11 @@ This directory contains comprehensive end-to-end tests for Taskw that verify the
 **Expected Outcome**: A fully functional Taskw project ready for development
 
 ### 2. Adding New Dependency (`02_dependency_test.go`)
+
 **Scenario**: Developer adds a new service with provider functions
 
 **Test Steps**:
+
 1. Start with initialized project
 2. Add new notification service module with multiple providers
 3. Run `taskw scan` to detect new providers
@@ -34,10 +38,12 @@ This directory contains comprehensive end-to-end tests for Taskw that verify the
 
 **Expected Outcome**: New providers are automatically detected and included in dependency injection
 
-### 3. Adding New Route (`03_route_test.go`) 
+### 3. Adding New Route (`03_route_test.go`)
+
 **Scenario**: Developer adds new handler methods with @Router annotations
 
 **Test Steps**:
+
 1. Start with project + basic user service
 2. Create initial handler with 2 routes
 3. Generate initial routes
@@ -53,6 +59,7 @@ This directory contains comprehensive end-to-end tests for Taskw that verify the
 ## Running the Tests
 
 ### Prerequisites
+
 ```bash
 # Build Taskw binary
 cd /path/to/taskw
@@ -63,20 +70,23 @@ go version  # Should be Go 1.21+
 ```
 
 ### Run All E2E Tests
+
 ```bash
 cd test/e2e
 go test -v ./...
 ```
 
 ### Run Specific Test
+
 ```bash
 cd test/e2e
 go test -v -run TestProjectInitialization
-go test -v -run TestAddingNewDependency  
+go test -v -run TestAddingNewDependency
 go test -v -run TestAddingNewRoute
 ```
 
 ### Run with Verbose Output
+
 ```bash
 cd test/e2e
 go test -v -run TestProjectInitialization 2>&1 | tee init_test.log
@@ -94,6 +104,7 @@ Each test creates its own temporary directory under `/tmp/taskw-e2e-*-test` and 
 ## Expected Test Results
 
 ### Successful Run Example
+
 ```bash
 === RUN   TestProjectInitialization
 === RUN   TestProjectInitialization/01_initialize_project
@@ -113,12 +124,14 @@ Each test creates its own temporary directory under `/tmp/taskw-e2e-*-test` and 
 ### Test Failures
 
 **"Could not find taskw binary"**
+
 ```bash
 # Ensure taskw is built
 go build -o bin/taskw cmd/taskw/main.go
 ```
 
 **"go mod tidy failed"**
+
 ```bash
 # Check Go version and module setup
 go version
@@ -126,13 +139,16 @@ go env GOMOD
 ```
 
 **"Wire generation failed"**
+
 ```bash
 # Install wire (optional for tests)
 go install github.com/google/wire/cmd/wire@latest
 ```
 
 ### Debug Mode
+
 Set environment variable for more detailed output:
+
 ```bash
 export TASKW_E2E_DEBUG=1
 go test -v ./...
@@ -143,31 +159,32 @@ go test -v ./...
 When adding new test scenarios:
 
 1. **Create new file**: `XX_feature_test.go`
-2. **Follow naming**: `TestFeatureName` 
+2. **Follow naming**: `TestFeatureName`
 3. **Use subtests**: Break into logical steps
 4. **Clean up**: Use `defer os.RemoveAll(testDir)`
 5. **Verify thoroughly**: Check generated files, compilation, functionality
 6. **Document**: Add to this README
 
 ### Test Template
+
 ```go
 func TestNewFeature(t *testing.T) {
     // Setup
     testDir := filepath.Join(os.TempDir(), "taskw-e2e-feature-test")
     defer os.RemoveAll(testDir)
-    
+
     t.Run("01_setup", func(t *testing.T) {
         // Test setup
     })
-    
+
     t.Run("02_main_functionality", func(t *testing.T) {
         // Core test logic
     })
-    
+
     t.Run("03_verification", func(t *testing.T) {
         // Verify expected outcomes
     })
-    
+
     t.Logf("✅ Feature e2e test completed successfully")
 }
 ```

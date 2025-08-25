@@ -42,6 +42,7 @@ func init() {
 	generateCmd.AddCommand(generateAllCmd)
 	generateCmd.AddCommand(generateRoutesCmd)
 	generateCmd.AddCommand(generateDepsCmd)
+
 	// Set "all" as the default command when just "generate" is called
 	generateCmd.Run = generateAllCmd.Run
 

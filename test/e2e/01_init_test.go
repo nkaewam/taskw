@@ -39,7 +39,7 @@ func TestProjectInitialization(t *testing.T) {
 		cmd := exec.Command(taskwBin, "init", module)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Fatalf("taskw init failed: %v\nOutput: %s", err, string(output))
+			t.Fatalf("taskw init failed: %v \n Output: %s", err, string(output))
 		}
 
 		t.Logf("✅ taskw init output: %s", string(output))

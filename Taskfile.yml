@@ -12,12 +12,19 @@ tasks:
       - mkdir -p {{.BUILD_DIR}}
       - go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PATH}}
 
-  install:
+  install-dev:
     desc: Build and install taskw to PATH
     deps: [build]
     cmds:
       - sudo ln -sf $PWD/{{.BUILD_DIR}}/{{.BINARY_NAME}} /usr/local/bin/{{.BINARY_NAME}}-dev
       - echo "taskw installed to /usr/local/bin/{{.BINARY_NAME}}-dev"
+  install:
+    desc: Build and install taskw to PATH
+    deps: [build]
+    cmds:
+      - sudo ln -sf $PWD/{{.BUILD_DIR}}/{{.BINARY_NAME}} /usr/local/bin/{{.BINARY_NAME}}
+      - echo "taskw installed to /usr/local/bin/{{.BINARY_NAME}}"
+
   test:
     desc: Run all tests
     cmds:

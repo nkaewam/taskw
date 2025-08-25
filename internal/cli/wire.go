@@ -25,7 +25,7 @@ type Container struct {
 	Config     *config.Config
 }
 
-// ServiceSet is the Wire provider set for all CLI services
+// ProviderSet is the Wire provider set for all CLI services
 var ProviderSet = wire.NewSet(
 	GeneratedProviderSet,
 )

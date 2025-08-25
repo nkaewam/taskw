@@ -105,9 +105,14 @@ func setDefaults(v *viper.Viper) error {
 }
 
 // detectGoModule reads go.mod to extract the module name
+// Returns empty string if go.mod doesn't exist (e.g., during init)
 func detectGoModule() (string, error) {
 	data, err := os.ReadFile("go.mod")
 	if err != nil {
+		// If go.mod doesn't exist, return empty string (will be handled during init)
+		if os.IsNotExist(err) {
+			return "", nil
+		}
 		return "", fmt.Errorf("could not read go.mod: %w", err)
 	}
 
