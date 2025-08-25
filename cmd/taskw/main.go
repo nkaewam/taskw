@@ -34,17 +34,18 @@ It scans your Go code for special annotations and generates boilerplate code to 
 
 // Spinner handles animated loading indicators
 type Spinner struct {
-	chars []string
-	delay time.Duration
-	done  chan bool
-	mu    sync.Mutex
+	chars   []string
+	delay   time.Duration
+	done    chan bool
+	mu      sync.Mutex
+	stopped bool // Track if spinner has been stopped
 }
 
 func NewSpinner() *Spinner {
 	return &Spinner{
 		chars: []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
 		delay: 100 * time.Millisecond,
-		done:  make(chan bool),
+		done:  make(chan bool, 1), // Make the channel buffered to prevent deadlock
 	}
 }
 
@@ -67,10 +68,23 @@ func (s *Spinner) Start(message string) {
 }
 
 func (s *Spinner) Stop(message string) {
-	s.done <- true
 	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Prevent multiple calls to Stop
+	if s.stopped {
+		return
+	}
+	s.stopped = true
+
+	// Send stop signal (non-blocking with buffered channel)
+	select {
+	case s.done <- true:
+	default:
+		// Channel already has a value, that's fine
+	}
+
 	fmt.Printf("\r✔ %s\n", message)
-	s.mu.Unlock()
 }
 
 func init() {

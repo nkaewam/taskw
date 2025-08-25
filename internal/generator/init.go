@@ -160,7 +160,6 @@ func (g *InitGenerator) runInitialGeneration(projectPath string) error {
 		return fmt.Errorf("failed to run 'task generate': %w\nOutput: %s", err, string(generateOutput))
 	}
 
-	fmt.Println("✅ Code generation completed successfully")
 	return nil
 }
 
