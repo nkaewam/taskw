@@ -47,11 +47,5 @@ func InitializeServer() (*Server, error) {
 // This only contains infrastructure providers - taskw will add the rest
 var ProviderSet = wire.NewSet(
 
-	ProvideServer,
-	ProvideFiberApp,
-
-	ProvideProductServiceAdapter,
-	ProvideUserServiceAdapter,
-
 	GeneratedProviderSet,
 )

@@ -1,5 +1,7 @@
 # Taskw - Go API Code Generator
 
+![Taskw](./docs/taskw-thumb.png)
+
 A CLI tool for automatically generating Fiber routes and Wire dependency injection code from annotations. Taskw eliminates boilerplate and keeps your API handlers focused on business logic.
 
 ## What Problem Does Taskw Solve?
