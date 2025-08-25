@@ -74,14 +74,23 @@ func (g *DependencyGenerator) generateImports(providers []scanner.ProviderFuncti
 
 	// Determine the output package name from the output directory
 	outputPackage := g.getOutputPackageName()
+	outputDir := g.config.Paths.OutputDir
 
 	// Collect unique packages that need to be imported
 	packageSet := make(map[string]bool)
 	for _, provider := range providers {
 		if provider.Package != "" && provider.Package != outputPackage {
-			// Generate import path based on module and package
-			// Skip importing the same package as the output file
-			importPath := fmt.Sprintf(`"%s/internal/%s"`, g.config.Project.Module, provider.Package)
+			var importPath string
+
+			// Check if we're generating for CLI and the provider is a CLI subpackage
+			if strings.Contains(outputDir, "/cli") && isCLISubpackage(provider.Package) {
+				// For CLI subpackages, use the full CLI path
+				importPath = fmt.Sprintf(`"%s/internal/cli/%s"`, g.config.Project.Module, provider.Package)
+			} else {
+				// For other packages (like config), use the root internal path
+				importPath = fmt.Sprintf(`"%s/internal/%s"`, g.config.Project.Module, provider.Package)
+			}
+
 			packageSet[importPath] = true
 		}
 	}
@@ -95,6 +104,17 @@ func (g *DependencyGenerator) generateImports(providers []scanner.ProviderFuncti
 	return imports
 }
 
+// isCLISubpackage checks if a package is a CLI subpackage
+func isCLISubpackage(pkg string) bool {
+	cliPackages := []string{"clean", "file", "generation", "project", "scan", "ui"}
+	for _, cliPkg := range cliPackages {
+		if pkg == cliPkg {
+			return true
+		}
+	}
+	return false
+}
+
 // generateDependencyFileContent creates the actual file content
 func (g *DependencyGenerator) generateDependencyFileContent(providersByPackage map[string][]scanner.ProviderFunction, imports []string) (string, error) {
 	data := struct {
@@ -103,7 +123,7 @@ func (g *DependencyGenerator) generateDependencyFileContent(providersByPackage m
 		ProvidersByPackage map[string][]scanner.ProviderFunction
 		GetProviderRef     func(pkg, functionName string) string
 	}{
-		Package:            "api",
+		Package:            g.getOutputPackageName(),
 		Imports:            imports,
 		ProvidersByPackage: providersByPackage,
 		GetProviderRef:     g.getProviderRef,

@@ -1,14 +1,14 @@
 version: "1.0"
 
 paths:
-    output_dir: .
-    scan_dirs: [.]
+    output_dir: ./internal/cli
+    scan_dirs: [./internal]
 
 generation:
     dependencies:
         enabled: true
         output_file: dependencies_gen.go
-    # This project is a CLI tool, so we don't need to generate routes
+    # This project is a CLI tool, no need to generate routes
     routes:
         enabled: false
         output_file: routes_gen.go

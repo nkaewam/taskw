@@ -40,18 +40,14 @@ type DepConfig struct {
 	OutputFile string `mapstructure:"output_file"`
 }
 
-// LoadConfig loads taskw.yaml or creates default config using Viper
-func LoadConfig(path string) (*Config, error) {
+// ProvideConfig loads taskw.yaml from current directory or creates default config using Viper
+func ProvideConfig() (*Config, error) {
 	v := viper.New()
 
-	if path == "" {
-		path = "taskw.yaml"
-	}
-
 	// Set config file details
-	configDir := filepath.Dir(path)
-	configName := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
-	configType := strings.TrimPrefix(filepath.Ext(path), ".")
+	configDir := filepath.Dir(".")
+	configName := strings.TrimSuffix(filepath.Base("taskw.yaml"), filepath.Ext("taskw.yaml"))
+	configType := strings.TrimPrefix(filepath.Ext("taskw.yaml"), ".")
 
 	if configDir == "." {
 		v.AddConfigPath(".")
@@ -73,11 +69,6 @@ func LoadConfig(path string) (*Config, error) {
 			config := &Config{}
 			if err := v.Unmarshal(config); err != nil {
 				return nil, fmt.Errorf("error unmarshaling default config: %w", err)
-			}
-
-			// Save the default config
-			if err := config.Save(path); err != nil {
-				return nil, fmt.Errorf("error saving default config: %w", err)
 			}
 
 			return config, nil

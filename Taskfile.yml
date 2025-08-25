@@ -3,7 +3,7 @@ version: '3'
 vars:
   BINARY_NAME: taskw
   BUILD_DIR: bin
-  MAIN_PATH: ./cmd/taskw
+  MAIN_PATH: main.go
 
 tasks:
   build:
@@ -16,8 +16,8 @@ tasks:
     desc: Build and install taskw to PATH
     deps: [build]
     cmds:
-      - sudo ln -sf $PWD/{{.BUILD_DIR}}/{{.BINARY_NAME}} /usr/local/bin/{{.BINARY_NAME}}
-      - echo "taskw installed to /usr/local/bin/{{.BINARY_NAME}}"
+      - sudo ln -sf $PWD/{{.BUILD_DIR}}/{{.BINARY_NAME}} /usr/local/bin/{{.BINARY_NAME}}-dev
+      - echo "taskw installed to /usr/local/bin/{{.BINARY_NAME}}-dev"
   test:
     desc: Run all tests
     cmds:
