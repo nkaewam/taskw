@@ -33,13 +33,13 @@ jobs:
       - name: Build Project
         run: pnpm build:open-next
 
-      - name: Cache dependencies
+      - name: Cache Builds
         uses: actions/cache@v4
         with:
-          path: ${{ github.workspace }}/docs/.open-next/cache
-          key: ${{ runner.os }}-open-next-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+          path: ${{ github.workspace }}/docs/.next/cache
+          key: ${{ runner.os }}-next-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
           restore-keys: |
-            ${{ runner.os }}-open-next-${{ hashFiles('**/pnpm-lock.yaml') }}
+            ${{ runner.os }}-next-${{ hashFiles('**/pnpm-lock.yaml') }}
 
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
