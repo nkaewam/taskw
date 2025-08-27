@@ -9,7 +9,7 @@ The auto-tagging workflow runs on every push to the `main` branch and:
 1. **Analyzes commit messages** since the last tag to determine version increment
 2. **Calculates the next version** using semantic versioning (MAJOR.MINOR.PATCH)
 3. **Creates and pushes a new tag** with the calculated version
-4. **Creates a GitHub Release** with changelog information
+4. **Triggers your existing CI** to create GitHub releases from tags
 
 ## Commit Message Conventions
 
@@ -54,7 +54,7 @@ git commit -m "chore: update dependencies"
 
 - **Smart Detection**: Automatically detects the type of changes from commit messages
 - **Skip Logic**: Won't create tags if no commits since last tag
-- **Release Creation**: Automatically creates GitHub releases with changelogs
+- **Tag Creation**: Creates semantic version tags that trigger your existing release CI
 - **Conflict Prevention**: Ignores documentation-only changes (\*.md files, docs/ folder)
 - **Summary Reports**: Provides detailed summaries in GitHub Actions
 
@@ -75,7 +75,7 @@ The workflow is configured to:
 - **Trigger**: On push to `main` branch
 - **Ignore**: Markdown files and documentation changes
 - **Skip**: Commits starting with `chore(release):`
-- **Permissions**: Uses `GITHUB_TOKEN` for creating tags and releases
+- **Permissions**: Uses `GITHUB_TOKEN` for creating tags
 
 ## Version History
 
@@ -104,6 +104,6 @@ Tags follow semantic versioning format: `v{MAJOR}.{MINOR}.{PATCH}`
 If the automatic workflow creates an incorrect tag:
 
 1. Delete the incorrect tag: `git tag -d v1.2.3 && git push --delete origin v1.2.3`
-2. Delete the GitHub release (if created)
+2. Delete the GitHub release (if created by your release CI)
 3. Push commits with corrected messages
 4. Or create the correct tag manually

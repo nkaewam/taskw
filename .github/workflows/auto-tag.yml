@@ -1,17 +1,17 @@
 name: Auto Tag with Semantic Versioning
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Test"]
+    types:
+      - completed
     branches:
       - main
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
 
 jobs:
   tag:
     runs-on: ubuntu-latest
-    if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
+    if: ${{ github.event.workflow_run.conclusion == 'success' && !startsWith(github.event.workflow_run.head_commit.message, 'chore(release):') }}
     
     steps:
       - name: Checkout code
@@ -19,6 +19,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Get previous tag
         id: previoustag
@@ -134,27 +135,7 @@ jobs:
           
           echo "Successfully created and pushed tag: $NEW_TAG"
 
-      - name: Create GitHub Release
-        if: steps.version_increment.outputs.increment != 'skip'
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.next_version.outputs.version }}
-          release_name: Release ${{ steps.next_version.outputs.version }}
-          body: |
-            ## Changes in ${{ steps.next_version.outputs.version }}
-            
-            This is a ${{ steps.next_version.outputs.increment_type }} release.
-            
-            ### Commits included:
-            ```
-            $(git log ${{ steps.previoustag.outputs.tag }}..HEAD --pretty=format:"- %s" --no-merges)
-            ```
-            
-            **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.previoustag.outputs.tag }}...${{ steps.next_version.outputs.version }}
-          draft: false
-          prerelease: false
+
 
       - name: Summary
         if: steps.version_increment.outputs.increment != 'skip'
@@ -164,7 +145,7 @@ jobs:
           echo "- **Previous tag**: ${{ steps.previoustag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
           echo "- **New tag**: ${{ steps.next_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Increment type**: ${{ steps.next_version.outputs.increment_type }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Release created**: ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag created**: ✅" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📋 Commit Message Guidelines" >> $GITHUB_STEP_SUMMARY
           echo "- \`feat:\` or \`feature:\` → **minor** version bump" >> $GITHUB_STEP_SUMMARY
