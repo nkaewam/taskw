@@ -16,7 +16,7 @@ Build a working Go API with automatic route registration and dependency injectio
 
 ## Prerequisites
 
-- [Taskw installed](/docs/installation) on your system
+- [Taskw installed](/installation) on your system
 - Go 1.21+ installed
 - Basic knowledge of Go and HTTP APIs
 
@@ -276,7 +276,7 @@ Expected response:
 ```
 
 **Check Swagger docs:**
-Open `http://localhost:8080/swagger/` in your browser to see auto-generated API documentation.
+Open `http://localhost:8080/docs/` in your browser to see auto-generated API documentation.
 
 </Steps>
 
@@ -324,38 +324,12 @@ When you created `Provide*` functions, Taskw:
 
 🎉 **Congratulations!** You've built a working API with Taskw. Here's what to explore next:
 
-### Immediate Next Steps
-- **Add more endpoints**: Try adding PUT and DELETE operations
-- **Add middleware**: Implement logging, CORS, or authentication
-- **Add validation**: Use a validation library for request bodies
-
-### Learn More
-- **[Configuration Guide](/docs/config/taskw-yaml)** - Customize Taskw for your project
-- **[CLI Reference](/docs/cli)** - Learn all Taskw commands
-- **[Examples](/docs/examples)** - See more complex API examples
-
-### Development Workflow
-- **[Integration Guide](/docs/integration/air)** - Set up live reloading
-- **[Troubleshooting](/docs/troubleshooting)** - Common issues and solutions
-
-### Advanced Topics
-- **[Wire Integration](/docs/concepts/providers)** - Deep dive into dependency injection
-- **[Testing Strategies](/docs/tutorials/testing)** - Test your generated code
-
 ## Common Next Questions
 
-**Q: How do I add middleware?**  
-A: Add middleware in your `cmd/server/main.go` before calling `RegisterRoutes()`.
-
-**Q: How do I connect to a real database?**  
-A: Replace the in-memory repository with a database repository, then add its provider function.
-
 **Q: How do I add authentication?**  
-A: Create auth middleware and provider functions. See the [Authentication Tutorial](/docs/tutorials/authentication).
+A: TBA
 
 **Q: Can I customize the generated code?**  
 A: The generated code shouldn't be modified directly. Customize through configuration and provider functions.
 
 ---
-
-**Ready for more?** Check out the [E-commerce API Example](/docs/examples/ecommerce) for a production-ready project structure.
