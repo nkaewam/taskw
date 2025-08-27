@@ -10,3 +10,6 @@ binding = "ASSETS"
 [[routes]]
 pattern = "taskw.nkaewam.dev"
 custom_domain = true
+
+[observability.logs]
+enabled = true
