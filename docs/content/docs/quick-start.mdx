@@ -1,0 +1,361 @@
+---
+title: Quick Start
+description: Build your first API with Taskw in 5 minutes - from zero to working endpoints
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Steps } from 'fumadocs-ui/components/steps';
+
+# Quick Start
+
+Build a working Go API with automatic route registration and dependency injection in just 5 minutes.
+
+<Callout type="info">
+  **What you'll build:** A simple user management API with GET and POST endpoints, complete with dependency injection and automatic route registration.
+</Callout>
+
+## Prerequisites
+
+- [Taskw installed](/docs/installation) on your system
+- Go 1.21+ installed
+- Basic knowledge of Go and HTTP APIs
+
+## Step-by-Step Tutorial
+
+<Steps>
+
+### Create a new Go project
+
+```bash
+mkdir my-api && cd my-api
+go mod init github.com/yourname/my-api
+```
+
+### Initialize Taskw
+
+```bash
+taskw init github.com/yourname/my-api
+```
+
+This creates a complete project structure:
+- `cmd/server/main.go` - Main server entry point
+- `internal/api/server.go` - Server struct and providers  
+- `internal/api/wire.go` - Wire dependency injection setup
+- `internal/health/handler.go` - Example health check handler
+- `taskw.yaml` - Taskw configuration
+- `Taskfile.yml` - Build automation
+- `.air.toml` - Live reload configuration
+
+### Create a user model
+
+Create `internal/models/user.go`:
+
+```go
+package models
+
+// User represents a user in our system
+type User struct {
+    ID    int    `json:"id"`
+    Name  string `json:"name"`
+    Email string `json:"email"`
+}
+
+// CreateUserRequest represents the request body for creating a user
+type CreateUserRequest struct {
+    Name  string `json:"name" validate:"required"`
+    Email string `json:"email" validate:"required,email"`
+}
+```
+
+### Create a user repository
+
+Create `internal/user/repository.go`:
+
+```go
+package user
+
+import (
+    "github.com/yourname/my-api/internal/models"
+)
+
+type Repository struct {
+    users []models.User
+    nextID int
+}
+
+// ProvideRepository creates a new user repository
+func ProvideRepository() *Repository {
+    return &Repository{
+        users: []models.User{
+            {ID: 1, Name: "John Doe", Email: "john@example.com"},
+            {ID: 2, Name: "Jane Smith", Email: "jane@example.com"},
+        },
+        nextID: 3,
+    }
+}
+
+func (r *Repository) FindAll() []models.User {
+    return r.users
+}
+
+func (r *Repository) Create(req models.CreateUserRequest) models.User {
+    user := models.User{
+        ID:    r.nextID,
+        Name:  req.Name,
+        Email: req.Email,
+    }
+    r.users = append(r.users, user)
+    r.nextID++
+    return user
+}
+```
+
+### Create a user service
+
+Create `internal/user/service.go`:
+
+```go
+package user
+
+import (
+    "github.com/yourname/my-api/internal/models"
+)
+
+type Service struct {
+    repo *Repository
+}
+
+// ProvideService creates a new user service
+func ProvideService(repo *Repository) *Service {
+    return &Service{repo: repo}
+}
+
+func (s *Service) GetAll() []models.User {
+    return s.repo.FindAll()
+}
+
+func (s *Service) Create(req models.CreateUserRequest) models.User {
+    return s.repo.Create(req)
+}
+```
+
+### Create a user handler with routes
+
+Create `internal/user/handler.go`:
+
+```go
+package user
+
+import (
+    "github.com/gofiber/fiber/v2"
+    "github.com/yourname/my-api/internal/models"
+)
+
+type Handler struct {
+    service *Service
+}
+
+// ProvideHandler creates a new user handler
+func ProvideHandler(service *Service) *Handler {
+    return &Handler{service: service}
+}
+
+// GetUsers retrieves all users
+// @Summary Get all users
+// @Description Get a list of all users in the system
+// @Tags users
+// @Accept json
+// @Produce json
+// @Success 200 {array} models.User
+// @Router /api/v1/users [get]
+func (h *Handler) GetUsers(c *fiber.Ctx) error {
+    users := h.service.GetAll()
+    return c.JSON(fiber.Map{
+        "data": users,
+        "count": len(users),
+    })
+}
+
+// CreateUser creates a new user
+// @Summary Create a new user
+// @Description Add a new user to the system
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param user body models.CreateUserRequest true "User data"
+// @Success 201 {object} models.User
+// @Failure 400 {object} map[string]string
+// @Router /api/v1/users [post]
+func (h *Handler) CreateUser(c *fiber.Ctx) error {
+    var req models.CreateUserRequest
+    
+    if err := c.BodyParser(&req); err != nil {
+        return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+    }
+    
+    if req.Name == "" || req.Email == "" {
+        return c.Status(400).JSON(fiber.Map{"error": "Name and email are required"})
+    }
+    
+    user := h.service.Create(req)
+    return c.Status(201).JSON(user)
+}
+```
+
+<Callout type="tip">
+  **Notice the `@Router` annotations!** These tell Taskw which HTTP methods and paths to map to your handler functions.
+</Callout>
+
+### Generate the boilerplate code
+
+Run Taskw to generate route registration and dependency injection:
+
+```bash
+taskw generate
+```
+
+You should see output like:
+```
+🔄 Generating routes...
+✅ Generated routes in internal/api/routes_gen.go
+🔄 Generating dependencies...
+✅ Generated dependencies in internal/api/dependencies_gen.go
+```
+
+### Install dependencies and generate Wire code
+
+```bash
+go mod tidy
+go generate ./...
+```
+
+### Run your API
+
+```bash
+# Using Taskfile (recommended)
+task dev
+
+# Or directly with go run
+go run cmd/server/main.go
+```
+
+Your API is now running at `http://localhost:8080`!
+
+### Test your API
+
+**Get all users:**
+```bash
+curl http://localhost:8080/api/v1/users
+```
+
+Expected response:
+```json
+{
+  "data": [
+    {"id": 1, "name": "John Doe", "email": "john@example.com"},
+    {"id": 2, "name": "Jane Smith", "email": "jane@example.com"}
+  ],
+  "count": 2
+}
+```
+
+**Create a new user:**
+```bash
+curl -X POST http://localhost:8080/api/v1/users \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Bob Johnson", "email": "bob@example.com"}'
+```
+
+Expected response:
+```json
+{
+  "id": 3,
+  "name": "Bob Johnson", 
+  "email": "bob@example.com"
+}
+```
+
+**Check Swagger docs:**
+Open `http://localhost:8080/swagger/` in your browser to see auto-generated API documentation.
+
+</Steps>
+
+## What Just Happened?
+
+Let's understand what Taskw generated for you:
+
+### 1. Route Registration (`internal/api/routes_gen.go`)
+
+```go
+// Generated by Taskw - DO NOT EDIT
+func (s *Server) RegisterRoutes(app *fiber.App) error {
+    app.Get("/api/v1/users", s.userHandler.GetUsers)
+    app.Post("/api/v1/users", s.userHandler.CreateUser)
+    app.Get("/health", s.healthHandler.Health)
+    return nil
+}
+```
+
+### 2. Dependency Injection (`internal/api/dependencies_gen.go`)
+
+```go
+// Generated by Taskw - DO NOT EDIT
+var GeneratedProviderSet = wire.NewSet(
+    user.ProvideHandler,
+    user.ProvideService, 
+    user.ProvideRepository,
+    health.ProvideHandler,
+)
+```
+
+### 3. The Magic
+
+When you added `@Router` annotations to your handlers, Taskw:
+1. **Scanned** your code for these annotations
+2. **Extracted** the HTTP method and path information
+3. **Generated** the route registration code automatically
+
+When you created `Provide*` functions, Taskw:
+1. **Found** all functions starting with "Provide"
+2. **Analyzed** their return types and dependencies
+3. **Generated** the Wire provider set automatically
+
+## Next Steps
+
+🎉 **Congratulations!** You've built a working API with Taskw. Here's what to explore next:
+
+### Immediate Next Steps
+- **Add more endpoints**: Try adding PUT and DELETE operations
+- **Add middleware**: Implement logging, CORS, or authentication
+- **Add validation**: Use a validation library for request bodies
+
+### Learn More
+- **[Configuration Guide](/docs/config/taskw-yaml)** - Customize Taskw for your project
+- **[CLI Reference](/docs/cli)** - Learn all Taskw commands
+- **[Examples](/docs/examples)** - See more complex API examples
+
+### Development Workflow
+- **[Integration Guide](/docs/integration/air)** - Set up live reloading
+- **[Troubleshooting](/docs/troubleshooting)** - Common issues and solutions
+
+### Advanced Topics
+- **[Wire Integration](/docs/concepts/providers)** - Deep dive into dependency injection
+- **[Testing Strategies](/docs/tutorials/testing)** - Test your generated code
+
+## Common Next Questions
+
+**Q: How do I add middleware?**  
+A: Add middleware in your `cmd/server/main.go` before calling `RegisterRoutes()`.
+
+**Q: How do I connect to a real database?**  
+A: Replace the in-memory repository with a database repository, then add its provider function.
+
+**Q: How do I add authentication?**  
+A: Create auth middleware and provider functions. See the [Authentication Tutorial](/docs/tutorials/authentication).
+
+**Q: Can I customize the generated code?**  
+A: The generated code shouldn't be modified directly. Customize through configuration and provider functions.
+
+---
+
+**Ready for more?** Check out the [E-commerce API Example](/docs/examples/ecommerce) for a production-ready project structure.

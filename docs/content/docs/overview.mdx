@@ -1,0 +1,184 @@
+---
+title: Overview
+description: What is Taskw and why should you use it for your Go APIs?
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Steps } from 'fumadocs-ui/components/steps';
+
+# Overview
+
+Taskw is a **code generator for Go APIs** that automatically generates boilerplate code for **Fiber routes** and **Wire dependency injection** from your annotations and provider functions.
+
+<Callout type="info">
+  **TL;DR**: Write handlers with `@Router` annotations and `Provide*` functions → Taskw generates the wiring code → Focus on business logic instead of boilerplate.
+</Callout>
+
+## The Problem
+
+When building Go APIs, you typically spend time writing:
+
+1. **Handler functions** with route annotations (`@Router /api/users [get]`)
+2. **Provider functions** for dependency injection (`func ProvideUserHandler()`)
+3. **Manual route registration** (wiring routes to handlers)
+4. **Manual dependency wiring** (connecting all providers with Wire)
+5. **Inconsistent code structure** (no standard pattern)
+
+The last two steps are pure boilerplate that gets repetitive and error-prone as your API grows.
+
+## The Solution
+
+Taskw **scans your code** for annotations and provider functions, then **automatically generates** the boilerplate:
+
+```go
+// Dependency Injection
+func ProvideUserHandler(service *Service) *Handler {
+    return &Handler{service: service}
+}
+
+// You write this:
+// <Other Swaggo annotations>
+// @Router /api/v1/users [get] <-- For route generation/registration
+func (h *Handler) GetUsers(c *fiber.Ctx) error {
+    // Your business logic here
+}
+```
+
+This is what `taskw` generates:
+
+```go
+// routes_gen.go
+
+// Taskw generates this:
+func (s *Server) RegisterRoutes(app *fiber.App) {
+    app.Get("/api/v1/users", s.userHandler.GetUsers)
+    // ... more routes
+}
+```
+
+```go
+// dependencies_gen.go
+var ProviderSet = wire.NewSet(
+    user.ProvideHandler,
+    user.ProvideService,
+    // ... more providers
+)
+```
+
+
+## Key Features
+
+### **Focused Stack**
+- **Web Framework**: Fiber v2
+- **Dependency Injection**: Google Wire
+- **Annotations**: Swaggo (@Router)
+- **Language**: Go
+
+This focused approach eliminates complexity and provides a proven, working solution.
+
+### **What It Generates**
+- **Route registration** from `@Router` annotations
+- **Wire provider sets** from `Provide*` functions
+- **Type-safe dependency injection** code
+- **Development-friendly** watching and regeneration
+
+### **Development Workflow**
+- **Watch mode** for automatic regeneration during development
+- **Scanning** to preview what will be generated
+- **Clean command** to remove generated files
+- **Integration** with existing build tools (Taskfile, Makefile)
+
+## How It Works
+
+<Steps>
+
+### Scan
+Taskw scans your configured directories for:
+- Handler methods with `@Router` annotations
+- Provider functions starting with `Provide*`
+
+### Analyze  
+It extracts information about:
+- Route paths and HTTP methods
+- Handler function signatures
+- Provider dependencies and return types
+
+### Generate
+It creates two files:
+- `routes_gen.go` - Fiber route registration
+- `dependencies_gen.go` - Wire provider sets
+
+### Integrate
+Your application uses the generated code:
+- Wire generates dependency injection
+- Routes are automatically registered
+
+</Steps>
+
+## When to Use Taskw
+
+✅ **Perfect for:**
+- New Go APIs using Fiber + Wire
+- Existing APIs with lots of manual route registration
+- Teams wanting to standardize API structure
+- Projects that need consistent code structure and patterns
+
+❌ **Not ideal for:**
+- APIs using other frameworks (Gin, Echo, etc.)
+- Projects not using dependency injection
+- Teams preferring manual control over all code
+
+## Example: Before vs After
+
+**Before Taskw** (manual approach):
+```go
+// Manual route registration
+func SetupRoutes(app *fiber.App, handlers *Handlers) {
+    api := app.Group("/api/v1")
+    api.Get("/users", handlers.User.GetUsers)
+    api.Post("/users", handlers.User.CreateUser)
+    api.Get("/products", handlers.Product.GetProducts)
+    // ... 50 more routes
+}
+
+// Manual Wire setup
+var ProviderSet = wire.NewSet(
+    user.ProvideHandler,
+    user.ProvideService,
+    user.ProvideRepository,
+    product.ProvideHandler,
+    // ... 50 more providers
+)
+```
+
+**After Taskw** (generated approach):
+```go
+// You only write the handlers with annotations:
+// @Router /api/v1/users [get]
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error { ... }
+
+// @Router /api/v1/users [post]  
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error { ... }
+
+// And the provider functions:
+func ProvideUserHandler(service *UserService) *UserHandler { ... }
+
+// Taskw generates everything else!
+```
+
+## Architecture Benefits
+
+- **Consistency**: All routes and dependencies follow the same pattern
+- **Type Safety**: Generated code is type-safe and compile-checked
+- **Discoverability**: Easy to find all routes and dependencies
+- **Maintainability**: Changes to handlers automatically update routing
+- **Team Collaboration**: New team members follow established patterns
+
+## Next Steps
+
+Ready to get started? Choose your path:
+
+- **New to Taskw?** → [Installation Guide](/docs/installation)
+- **Want to try it?** → [Quick Start Tutorial](/docs/quick-start)  
+- **Have existing code?** → [Migration Guide](/docs/migration)
+- **Need examples?** → [Example Projects](/docs/examples)

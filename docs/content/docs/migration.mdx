@@ -1,0 +1,469 @@
+---
+title: Migration Guide
+description: Migrate your existing Fiber and Wire projects to use Taskw for automatic code generation
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Steps } from 'fumadocs-ui/components/steps';
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+
+# Migration Guide
+
+Learn how to migrate your existing Fiber and Wire projects to use Taskw for automatic route registration and dependency injection.
+
+<Callout type="info">
+  **Migration Philosophy**: Taskw is designed to work alongside your existing code. You can migrate incrementally without breaking changes.
+</Callout>
+
+## Prerequisites
+
+Before migrating, ensure your project uses:
+- **Fiber v2** for HTTP routing
+- **Google Wire** for dependency injection  
+- **Go modules** (`go.mod` file exists)
+
+## Migration Strategies
+
+Choose the approach that fits your project:
+
+<Tabs items={['Incremental Migration', 'Full Migration', 'New Module Migration']}>
+
+<Tab>
+### Incremental Migration (Recommended)
+
+Migrate one module or handler at a time while keeping existing code working.
+
+**Best for:**
+- Large existing codebases
+- Production systems that can't have downtime
+- Teams wanting to learn Taskw gradually
+
+**Approach:**
+1. Add Taskw to your project
+2. Migrate one handler package at a time
+3. Keep existing manual routes until all are migrated
+4. Remove manual code once everything is working
+
+</Tab>
+
+<Tab>
+### Full Migration
+
+Replace all manual route registration and dependency injection at once.
+
+**Best for:**
+- Smaller projects (< 20 handlers)
+- Development/staging environments
+- Projects with comprehensive tests
+
+**Approach:**
+1. Add Taskw configuration
+2. Add annotations to all handlers
+3. Replace manual route registration with generated code
+4. Replace manual Wire providers with generated sets
+
+</Tab>
+
+<Tab>
+### New Module Migration
+
+Create a new module alongside your existing code.
+
+**Best for:**
+- Monoliths wanting to extract services
+- Adding new features to existing systems
+- Testing Taskw without touching existing code
+
+**Approach:**
+1. Create new Go module for new features
+2. Use Taskw for the new module
+3. Gradually move handlers from old module to new
+
+</Tab>
+
+</Tabs>
+
+## Step-by-Step Migration
+
+<Steps>
+
+### Analyze your current structure
+
+First, understand what you currently have:
+
+```bash
+# Find all route registration code
+grep -r "app\.\(Get\|Post\|Put\|Delete\)" . --include="*.go"
+
+# Find all Wire provider functions
+grep -r "wire\.NewSet\|wire\.Build" . --include="*.go"
+
+# Count your handlers
+find . -name "*handler*.go" -o -name "*controller*.go" | wc -l
+```
+
+Document your findings:
+- How many handlers do you have?
+- Where is route registration currently done?
+- Where are Wire providers currently defined?
+
+### Install and configure Taskw
+
+Add Taskw to your project:
+
+```bash
+# Install Taskw
+go install github.com/nkaewam/taskw@latest
+
+# Initialize in your project root
+taskw init
+```
+
+Edit the generated `taskw.yaml` to match your project structure:
+
+```yaml
+version: "1.0"
+project:
+  module: "github.com/yourcompany/your-existing-project"
+paths:
+  scan_dirs: 
+    - "./internal/handlers"  # Your handler directories
+    - "./internal/api"
+    - "./pkg/controllers"
+  output_dir: "./internal/api"  # Where to generate files
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+### Add annotations to existing handlers
+
+Transform your existing handler methods by adding `@Router` annotations:
+
+**Before:**
+```go
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    // Your existing logic
+    return c.JSON(users)
+}
+```
+
+**After:**
+```go
+// GetUsers retrieves all users
+// @Summary Get all users
+// @Description Get a list of all users in the system
+// @Tags users
+// @Accept json
+// @Produce json
+// @Success 200 {array} User
+// @Router /api/v1/users [get]
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    // Your existing logic (unchanged)
+    return c.JSON(users)
+}
+```
+
+<Callout type="tip">
+  **Pro tip**: Start with one handler package and test the generation before annotating everything.
+</Callout>
+
+### Add provider functions
+
+If you don't already have provider functions, add them:
+
+**Before:**
+```go
+// Constructor function
+func NewUserHandler(service *UserService) *UserHandler {
+    return &UserHandler{service: service}
+}
+```
+
+**After:**
+```go
+// ProvideUserHandler creates a new user handler (Wire provider)
+func ProvideUserHandler(service *UserService) *UserHandler {
+    return &UserHandler{service: service}
+}
+
+// Keep the old constructor for backward compatibility (optional)
+func NewUserHandler(service *UserService) *UserHandler {
+    return ProvideUserHandler(service)
+}
+```
+
+### Generate code and test
+
+Generate the Taskw code:
+
+```bash
+taskw generate
+go mod tidy
+go generate ./...
+```
+
+This creates:
+- `internal/api/routes_gen.go` - Generated route registration
+- `internal/api/dependencies_gen.go` - Generated Wire providers
+
+### Update your main server file
+
+Replace manual route registration with generated code:
+
+**Before:**
+```go
+// cmd/server/main.go (or wherever you register routes)
+func main() {
+    app := fiber.New()
+    
+    // Manual route registration
+    userHandler := &handlers.UserHandler{...}
+    app.Get("/api/v1/users", userHandler.GetUsers)
+    app.Post("/api/v1/users", userHandler.CreateUser)
+    // ... 50 more routes
+    
+    app.Listen(":8080")
+}
+```
+
+**After:**
+```go
+// cmd/server/main.go
+func main() {
+    app := fiber.New()
+    
+    // Wire-generated server with all dependencies
+    server, cleanup, err := api.InitializeServer()
+    if err != nil {
+        log.Fatal("Failed to initialize server:", err)
+    }
+    defer cleanup()
+    
+    // Taskw-generated route registration  
+    if err := server.RegisterRoutes(app); err != nil {
+        log.Fatal("Failed to register routes:", err)
+    }
+    
+    app.Listen(":8080")
+}
+```
+
+### Update Wire configuration
+
+Update your Wire setup to use generated providers:
+
+**Before:**
+```go
+// internal/api/wire.go
+var ProviderSet = wire.NewSet(
+    // Manual provider list
+    handlers.NewUserHandler,
+    services.NewUserService,
+    repositories.NewUserRepository,
+    // ... 50 more providers
+)
+```
+
+**After:**
+```go
+// internal/api/wire.go
+var ProviderSet = wire.NewSet(
+    // Manual providers (keep existing ones you need)
+    provideLogger,
+    provideFiberApp,
+    provideDatabase,
+    
+    // Generated providers from Taskw
+    GeneratedProviderSet,
+    
+    // Server constructor
+    NewServer,
+)
+```
+
+### Test your migration
+
+Verify everything works:
+
+```bash
+# Build your project
+go build -o bin/server cmd/server/main.go
+
+# Run your server
+./bin/server
+
+# Test endpoints
+curl http://localhost:8080/api/v1/users
+curl http://localhost:8080/health
+```
+
+### Clean up old code (optional)
+
+Once everything is working, you can remove:
+- Manual route registration code
+- Manual Wire provider lists (keep manual providers for non-generated dependencies)
+- Unused constructor functions (if you converted them all to providers)
+
+</Steps>
+
+## Common Migration Scenarios
+
+### Scenario 1: Existing Wire Setup
+
+**Current setup:**
+```go
+// You already have Wire working
+var ProviderSet = wire.NewSet(
+    NewUserHandler,
+    NewUserService,
+    NewUserRepository,
+)
+```
+
+**Migration:**
+1. Rename `NewUserHandler` to `ProvideUserHandler`
+2. Add `@Router` annotations to handler methods
+3. Run `taskw generate`
+4. Replace manual provider list with `GeneratedProviderSet`
+
+### Scenario 2: Manual Route Registration
+
+**Current setup:**
+```go
+// You register routes manually
+func SetupRoutes(app *fiber.App) {
+    api := app.Group("/api/v1")
+    api.Get("/users", userHandler.GetUsers)
+    // ...
+}
+```
+
+**Migration:**
+1. Add `@Router` annotations with full paths: `/api/v1/users [get]`
+2. Add provider functions for handlers
+3. Run `taskw generate`
+4. Replace `SetupRoutes()` with `server.RegisterRoutes(app)`
+
+### Scenario 3: No Dependency Injection
+
+**Current setup:**
+```go
+// You manually create handler dependencies
+userRepo := &UserRepository{db: db}
+userService := &UserService{repo: userRepo}
+userHandler := &UserHandler{service: userService}
+```
+
+**Migration:**
+1. Create provider functions for each component
+2. Set up Wire configuration file
+3. Add `@Router` annotations to handlers
+4. Run `taskw generate` and `go generate ./...`
+5. Use Wire-generated initialization
+
+## Migration Checklist
+
+Before migration:
+- [ ] **Backup your code** - Commit to version control
+- [ ] **Document current routes** - List all endpoints
+- [ ] **Identify dependencies** - Map out your dependency graph
+- [ ] **Plan rollback strategy** - How to revert if needed
+
+During migration:
+- [ ] **Test incrementally** - Migrate one package at a time
+- [ ] **Verify routes** - Ensure all endpoints still work
+- [ ] **Check dependencies** - Verify all injections work
+- [ ] **Update tests** - Modify tests for new structure
+
+After migration:
+- [ ] **Clean up dead code** - Remove unused manual registration
+- [ ] **Update documentation** - Document new development workflow
+- [ ] **Train team** - Ensure everyone understands new patterns
+- [ ] **Monitor production** - Watch for any issues
+
+## Troubleshooting Migration Issues
+
+### Routes Not Registering
+
+**Problem:** Some routes aren't generated
+
+**Solutions:**
+- Check `@Router` annotation syntax: `/path [method]`
+- Verify handler file names end with `handler.go`
+- Ensure handler methods match: `func (h *Handler) Method(c *fiber.Ctx) error`
+- Check `scan_dirs` in `taskw.yaml`
+
+### Wire Build Failures
+
+**Problem:** Wire compilation fails after migration
+
+**Solutions:**
+- Ensure all provider functions return pointers
+- Check provider function names start with `Provide*`
+- Verify dependency graph is complete
+- Remove unused providers from manual sets
+
+### Import Path Issues
+
+**Problem:** Generated code has wrong imports
+
+**Solutions:**
+- Check `project.module` in `taskw.yaml` matches `go.mod`
+- Ensure output directory is correct
+- Run `go mod tidy` after generation
+- Verify directory structure matches Go conventions
+
+### Handler Dependencies
+
+**Problem:** Handler dependencies aren't injected properly
+
+**Solutions:**
+- Check provider function signatures match dependencies
+- Ensure all dependencies have their own providers
+- Verify Wire provider set includes all necessary providers
+- Check for circular dependencies
+
+## Best Practices for Migration
+
+### 1. Start Small
+- Migrate one handler package first
+- Test thoroughly before continuing
+- Learn Taskw patterns on simple code
+
+### 2. Maintain Backward Compatibility
+- Keep old constructor functions during transition
+- Use feature flags to switch between old/new code
+- Deploy incrementally if possible
+
+### 3. Update Gradually
+- Don't change everything at once
+- Keep existing patterns working during migration
+- Remove old code only after new code is proven
+
+### 4. Test Everything
+- Unit tests for individual handlers
+- Integration tests for full request flow
+- Load tests if migrating production systems
+
+### 5. Document Changes
+- Update team documentation
+- Add code comments explaining patterns
+- Create migration notes for future reference
+
+## Getting Help
+
+If you encounter issues during migration:
+
+1. **Check the troubleshooting guide** - [Troubleshooting](/docs/troubleshooting)
+2. **Review examples** - [Example Projects](/docs/examples) 
+3. **Ask the community** - [GitHub Discussions](https://github.com/nkaewam/taskw/discussions)
+4. **Open an issue** - [GitHub Issues](https://github.com/nkaewam/taskw/issues)
+
+---
+
+**Migration successful?** 🎉 Welcome to automated code generation! Next, explore [advanced configuration options](/docs/config) to optimize your setup.

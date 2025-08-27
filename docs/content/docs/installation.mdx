@@ -1,0 +1,243 @@
+---
+title: Installation
+description: Install Taskw using go install, pre-built binaries, or build from source
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Steps } from 'fumadocs-ui/components/steps';
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+
+# Installation
+
+Get Taskw installed and ready to generate code for your Go APIs.
+
+## Requirements
+
+Before installing Taskw, ensure you have:
+
+- **Go 1.21+** installed on your system
+- A **Go project** using modules (`go.mod` file)
+- Basic familiarity with **Fiber** and **Wire** (optional but helpful)
+
+<Callout type="info">
+  **New to Go?** Install Go from [go.dev/doc/install](https://go.dev/doc/install) first.
+</Callout>
+
+## Installation Methods
+
+Choose the installation method that works best for your environment:
+
+<Tabs items={['Go Install (Recommended)', 'Pre-built Binaries', 'Build from Source']}>
+
+<Tab>
+### Option 1: Go Install (Recommended)
+
+The easiest way to install Taskw is using `go install`:
+
+```bash
+go install github.com/nkaewam/taskw@latest
+```
+
+This will:
+- Download and compile the latest version
+- Install the `taskw` binary to your `$GOPATH/bin` directory
+- Make it available globally if `$GOPATH/bin` is in your `$PATH`
+
+**Verify the installation:**
+```bash
+taskw --help
+```
+
+You should see the Taskw help output.
+
+<Callout type="tip">
+  **Can't find `taskw` command?** Make sure `$GOPATH/bin` is in your `$PATH`. Run `go env GOPATH` to find your Go path.
+</Callout>
+
+</Tab>
+
+<Tab>
+### Option 2: Pre-built Binaries
+
+Download pre-compiled binaries for your platform:
+
+1. **Go to the releases page:**
+   [github.com/nkaewam/taskw/releases](https://github.com/nkaewam/taskw/releases)
+
+2. **Download the binary for your OS/architecture:**
+   - `taskw-linux-amd64` (Linux 64-bit)
+   - `taskw-darwin-amd64` (macOS Intel)
+   - `taskw-darwin-arm64` (macOS Apple Silicon)
+   - `taskw-windows-amd64.exe` (Windows 64-bit)
+
+3. **Make it executable and move to PATH:**
+
+```bash
+# Linux/macOS
+chmod +x taskw-*
+sudo mv taskw-* /usr/local/bin/taskw
+
+# Or add to your local bin directory
+mkdir -p ~/bin
+mv taskw-* ~/bin/taskw
+# Add ~/bin to your PATH in ~/.bashrc or ~/.zshrc
+```
+
+4. **Verify the installation:**
+```bash
+taskw --help
+```
+
+</Tab>
+
+<Tab>
+### Option 3: Build from Source
+
+For the latest development version or custom builds:
+
+<Steps>
+
+### Clone the repository
+```bash
+git clone https://github.com/nkaewam/taskw.git
+cd taskw
+```
+
+### Build the binary
+```bash
+go build -o taskw main.go
+```
+
+### Install globally (optional)
+```bash
+sudo mv taskw /usr/local/bin/
+# Or add to your local bin
+mv taskw ~/bin/
+```
+
+### Verify installation
+```bash
+taskw --help
+```
+
+</Steps>
+
+<Callout type="warn">
+  **Development builds** may be unstable. Use tagged releases for production projects.
+</Callout>
+
+</Tab>
+
+</Tabs>
+
+## Platform-Specific Notes
+
+### macOS
+If you get a "developer cannot be verified" error:
+1. Right-click the `taskw` binary
+2. Select "Open" from the context menu
+3. Click "Open" in the security dialog
+
+Or use the command line:
+```bash
+xattr -d com.apple.quarantine taskw
+```
+
+### Windows
+- Use PowerShell or Command Prompt
+- Add the `taskw.exe` location to your `PATH` environment variable
+- Windows Defender may flag the binary initially - this is normal for new executables
+
+### Linux
+- Most distributions work out of the box
+- For older systems, you may need to install additional dependencies
+- If using snap/flatpak Go, ensure `$GOPATH/bin` is accessible
+
+## Verify Your Installation
+
+Test that Taskw is working correctly:
+
+```bash
+# Check version
+taskw --version
+
+# View help
+taskw --help
+
+# Test in a new directory
+mkdir test-taskw && cd test-taskw
+go mod init example.com/test-taskw
+taskw init
+```
+
+You should see Taskw create a `taskw.yaml` configuration file.
+
+<Callout type="success">
+  **Installation successful!** Taskw is ready to use. Next, try the [Quick Start Guide](/docs/quick-start).
+</Callout>
+
+## Updating Taskw
+
+### From Go Install
+```bash
+go install github.com/nkaewam/taskw@latest
+```
+
+### From Binary
+Download the latest binary from the releases page and replace your existing installation.
+
+### Check Current Version
+```bash
+taskw --version
+```
+
+## Troubleshooting
+
+### Command Not Found
+
+**Problem:** `taskw: command not found`
+
+**Solutions:**
+- **Go install users:** Ensure `$GOPATH/bin` is in your `$PATH`
+- **Binary users:** Verify the binary location is in your `$PATH`
+- **Check installation:** Run `which taskw` (Linux/macOS) or `where taskw` (Windows)
+
+### Permission Denied
+
+**Problem:** `permission denied` when running taskw
+
+**Solutions:**
+- Make the binary executable: `chmod +x taskw`
+- Install with proper permissions: `sudo mv taskw /usr/local/bin/`
+- Use a user-owned directory: `~/bin/` instead of `/usr/local/bin/`
+
+### Go Version Issues
+
+**Problem:** Build errors or compatibility issues
+
+**Solutions:**
+- Update Go to version 1.21 or later: [go.dev/doc/install](https://go.dev/doc/install)
+- Check your Go version: `go version`
+- Use pre-built binaries if Go update isn't possible
+
+### Network Issues
+
+**Problem:** Can't download with `go install`
+
+**Solutions:**
+- Check internet connection and proxy settings
+- Use `GOPROXY` environment variable: `GOPROXY=direct go install github.com/nkaewam/taskw@latest`
+- Download pre-built binary instead
+
+## Next Steps
+
+Now that Taskw is installed:
+
+1. **Learn the basics** → [Quick Start Guide](/docs/quick-start)
+2. **Configure your project** → [Configuration Reference](/docs/config/taskw-yaml)
+3. **See examples** → [Example Projects](/docs/examples)
+4. **Get help** → [Troubleshooting Guide](/docs/troubleshooting)
+
+---
+
+**Need help?** Join our [GitHub Discussions](https://github.com/nkaewam/taskw/discussions) or [open an issue](https://github.com/nkaewam/taskw/issues).
