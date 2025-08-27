@@ -1,21 +1,43 @@
-name: Auto Tag with Semantic Versioning
+name: Test + Tag
 
 on:
-  workflow_run:
-    workflows: ["Test"]
-    types:
-      - completed
-    branches:
-      - main
-
-permissions:
-  contents: write
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24.1'
+        
+    - name: Install dependencies
+      run: |
+        go install github.com/go-task/task/v3/cmd/task@latest
+        go install github.com/swaggo/swag/cmd/swag@latest
+        go install github.com/google/wire/cmd/wire@latest
+        
+    - name: Build taskw binary for tests
+      run: |
+        mkdir -p bin
+        go build -o bin/taskw main.go
+        chmod +x bin/taskw
+        echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
+        
+    - name: Run tests
+      run: go test -v ./...
+  
   tag:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' && !startsWith(github.event.workflow_run.head_commit.message, 'chore(release):') }}
-    
+    needs: test
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -140,25 +162,5 @@ jobs:
 
 
 
-      - name: Summary
-        if: steps.version_increment.outputs.increment != 'skip'
-        run: |
-          echo "## 🏷️ Auto-Tagging Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Previous tag**: ${{ steps.previoustag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **New tag**: ${{ steps.next_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Increment type**: ${{ steps.next_version.outputs.increment_type }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tag created**: ✅" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📋 Commit Message Guidelines" >> $GITHUB_STEP_SUMMARY
-          echo "- \`feat:\` or \`feature:\` → **minor** version bump" >> $GITHUB_STEP_SUMMARY
-          echo "- \`fix:\` or \`bugfix:\` → **patch** version bump" >> $GITHUB_STEP_SUMMARY
-          echo "- \`BREAKING CHANGE:\` or commits with \`!\` → **major** version bump" >> $GITHUB_STEP_SUMMARY
-          echo "- Other conventional commits → **patch** version bump" >> $GITHUB_STEP_SUMMARY
 
-      - name: Skip Summary
-        if: steps.version_increment.outputs.increment == 'skip'
-        run: |
-          echo "## ⏭️ Auto-Tagging Skipped" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "No new commits found since last tag: ${{ steps.previoustag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+    
