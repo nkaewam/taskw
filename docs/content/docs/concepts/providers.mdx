@@ -1,0 +1,287 @@
+---
+title: Provider Functions
+description: Understanding provider function patterns and Wire integration
+icon: Package
+---
+
+# Provider Functions
+
+Provider functions are the foundation of dependency injection in Taskw. They define how your application components are created and wired together using Google's Wire library.
+
+## Overview
+
+Provider functions are constructor functions that create and configure your application's dependencies. Taskw scans for these functions and generates Wire-compatible dependency injection code.
+
+## Basic Provider Pattern
+
+### Simple Provider
+
+```go
+func ProvideUserHandler(service *UserService) *UserHandler {
+    return &UserHandler{service: service}
+}
+```
+
+### Provider with Configuration
+
+```go
+func ProvideUserService(config *Config) *UserService {
+    return &UserService{
+        dbURL: config.DatabaseURL,
+        timeout: config.Timeout,
+    }
+}
+```
+
+## Provider Function Requirements
+
+### 1. Must Have "Provide" Prefix
+
+```go
+// ✅ Correct - function name starts with "Provide"
+func ProvideUserHandler(service *UserService) *UserHandler {
+    return &UserHandler{service: service}
+}
+
+// ✅ Also correct - function name starts with "Provide"
+func ProvideDatabase(config *Config) (*gorm.DB, error) {
+    return gorm.Open(postgres.Open(config.DatabaseURL), &gorm.Config{})
+}
+
+// ❌ Incorrect - function name doesn't start with "Provide"
+func NewUserHandler(service *UserService) *UserHandler {
+    return &UserHandler{service: service}
+}
+```
+
+### 2. Must Return Concrete Types
+
+```go
+// ✅ Returns concrete type
+func ProvideUserHandler(service *UserService) *UserHandler {
+    return &UserHandler{service: service}
+}
+
+// ❌ Returns interface (not supported)
+func ProvideUserHandler(service *UserService) UserHandler {
+    return &userHandler{service: service}
+}
+```
+
+### 3. Must Be Constructor Functions
+
+```go
+// ✅ Constructor function
+func ProvideUserHandler(service *UserService) *UserHandler {
+    return &UserHandler{service: service}
+}
+
+// ❌ Not a constructor
+func (h *UserHandler) GetUser(id string) (*User, error) {
+    // Implementation
+}
+```
+
+## Dependency Injection Patterns
+
+### Struct Constructor Injection
+
+```go
+type UserHandler struct {
+    service *UserService
+}
+
+func ProvideUserHandler(service *UserService) *UserHandler {
+    return &UserHandler{service: service}
+}
+```
+
+### Interface Implementation
+
+```go
+// Define interface
+type UserRepository interface {
+    FindByID(id string) (*User, error)
+}
+
+// Implementation
+type UserRepositoryImpl struct {
+    db *gorm.DB
+}
+
+func ProvideUserRepository(db *gorm.DB) *UserRepository {
+    return &UserRepositoryImpl{db: db}
+}
+```
+
+## Common Provider Patterns
+
+### Handler Providers
+
+```go
+func ProvideUserHandler(service *UserService) *UserHandler {
+    return &UserHandler{service: service}
+}
+
+func ProvideOrderHandler(service *OrderService) *OrderHandler {
+    return &OrderHandler{service: service}
+}
+
+func ProvideHealthHandler() *HealthHandler {
+    return &HealthHandler{}
+}
+```
+
+### Service Providers
+
+```go
+func ProvideUserService(repo *UserRepository) *UserService {
+    return &UserService{repo: repo}
+}
+
+func ProvideOrderService(repo *OrderRepository) *OrderService {
+    return &OrderService{repo: repo}
+}
+
+func ProvideEmailService(config *Config) *EmailService {
+    return &EmailService{
+        smtpHost: config.SMTPHost,
+        smtpPort: config.SMTPPort,
+    }
+}
+```
+
+## Wire Integration
+
+### Generated Provider Sets
+
+Taskw generates Wire provider sets from your provider functions with "Provide" prefix:
+
+```go
+// Generated dependencies_gen.go
+package api
+
+import (
+    "github.com/google/wire"
+    "your-project/internal/handlers"
+    "your-project/internal/services"
+    "your-project/internal/repositories"
+)
+
+var ProviderSet = wire.NewSet(
+    handlers.ProvideUserHandler,
+    handlers.ProvideOrderHandler,
+    handlers.ProvideHealthHandler,
+    services.ProvideUserService,
+    services.ProvideOrderService,
+    repositories.ProvideUserRepository,
+    repositories.ProvideOrderRepository,
+)
+```
+
+### Wire Usage
+
+Use the generated provider set in your Wire setup:
+
+```go
+// wire.go
+//go:build wireinject
+// +build wireinject
+
+package main
+
+import (
+    "github.com/google/wire"
+    "your-project/internal/api"
+)
+
+func InitializeServer() (*api.Server, error) {
+    wire.Build(
+        api.ProviderSet,
+        // Add any additional providers here
+    )
+    return &api.Server{}, nil
+}
+```
+
+### Build Tags
+
+Generated files include proper build tags:
+
+```go
+//go:build !wireinject
+// +build !wireinject
+
+package api
+
+// Generated code here
+```
+
+## Error Handling
+
+Error handling is important for providers that can fail. Based on the Wire documentation, providers should return an error if they fail to create the dependency.
+
+```go
+// ✅ Proper error handling
+func ProvideDatabase(config *Config) (*gorm.DB, error) {
+    db, err := gorm.Open(postgres.Open(config.DatabaseURL), &gorm.Config{})
+    if err != nil {
+        return nil, fmt.Errorf("failed to connect to database: %w", err)
+    }
+    return db, nil
+}
+
+// ❌ Ignoring errors
+func ProvideDatabase(config *Config) *gorm.DB {
+    db, _ := gorm.Open(postgres.Open(config.DatabaseURL), &gorm.Config{})
+    return db
+}
+```
+
+## Cleanups
+
+For providers that need to close resources, you can return a cleanup function. Based on the Wire documentation, providers should close resources if they are not needed anymore.
+
+```go
+func ProvideDatabase(config *Config) (*gorm.DB, func(), error) {
+    db, err := gorm.Open(postgres.Open(config.DatabaseURL), &gorm.Config{})
+    if err != nil {
+        return nil, fmt.Errorf("failed to connect to database: %w", err)
+    }
+    return db, func() {
+        db.Close()
+    }, nil
+}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Provider not found**: Ensure function name starts with "Provide"
+
+**Missing dependencies**: Verify all required dependencies are available
+
+### Debugging Commands
+
+```bash
+# Scan to see what providers are detected
+taskw scan
+
+# Generate dependency injection code
+taskw generate deps
+
+# Check for Wire errors
+go generate ./...
+```
+
+### Validation
+
+Taskw validates providers and reports issues:
+
+```
+❌ Validation errors:
+  • Circular dependency detected: UserHandler ↔ UserService
+  • Missing "Provide" prefix for NewOrderHandler
+  • Invalid provider function: GetUser (not a constructor)
+```

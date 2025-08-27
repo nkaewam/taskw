@@ -6,6 +6,26 @@
     "overview",
     "installation",
     "quick-start",
-    "migration"
+    "migration",
+    "---CLI Reference---",
+    "cli/index",
+    "cli/init",
+    "cli/generate",
+    "cli/scan",
+    "cli/clean",
+    "cli/flags",
+    "---Configuration---",
+    "config/index",
+    "config/taskw-yaml",
+    "config/project-setup",
+    "config/paths",
+    "config/generation",
+    "---Core Concepts---",
+    "concepts/index",
+    "concepts/annotations",
+    "concepts/providers",
+    "concepts/handlers",
+    "concepts/code-generation",
+    "concepts/file-watching"
   ]
 }

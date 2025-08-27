@@ -1,0 +1,425 @@
+---
+title: Path Configuration
+description: Configure scanning directories and output paths
+icon: FolderTree
+---
+
+# Path Configuration
+
+The `paths` section in your `taskw.yaml` configuration controls where Taskw scans for code and where it outputs generated files.
+
+## Configuration Structure
+
+```yaml
+paths:
+  scan_dirs: ["./internal", "./cmd"]  # Directories to scan
+  output_dir: "./internal/api"        # Output directory
+```
+
+## scan_dirs
+
+**Type**: `[]string`  
+**Required**: No  
+**Default**: `["."]`  
+**Description**: Array of directories to scan for Go files with annotations.
+
+### Basic Usage
+
+```yaml
+paths:
+  scan_dirs: ["./internal"]
+```
+
+### Multiple Directories
+
+```yaml
+paths:
+  scan_dirs: 
+    - "./internal"
+    - "./cmd"
+    - "./pkg"
+```
+
+### Current Directory Only
+
+```yaml
+paths:
+  scan_dirs: ["."]
+```
+
+## output_dir
+
+**Type**: `string`  
+**Required**: No  
+**Default**: `"."`  
+**Description**: Directory where generated files will be placed.
+
+### Basic Usage
+
+```yaml
+paths:
+  output_dir: "./internal/api"
+```
+
+### Current Directory
+
+```yaml
+paths:
+  output_dir: "."
+```
+
+### Custom Generated Directory
+
+```yaml
+paths:
+  output_dir: "./generated"
+```
+
+## Scanning Behavior
+
+### File Types Scanned
+
+Taskw only scans `.go` files in the specified directories:
+
+```
+internal/
+├── handlers/
+│   ├── user.go          # ✅ Scanned
+│   ├── order.go         # ✅ Scanned
+│   └── user_test.go     # ❌ Ignored (test file)
+├── services/
+│   ├── user_service.go  # ✅ Scanned
+│   └── README.md        # ❌ Ignored (not .go file)
+└── utils/
+    └── helpers.go       # ✅ Scanned
+```
+
+### Recursive Scanning
+
+Taskw scans subdirectories recursively:
+
+```
+internal/
+├── handlers/
+│   ├── user/
+│   │   ├── user.go      # ✅ Scanned
+│   │   └── auth.go      # ✅ Scanned
+│   └── order/
+│       └── order.go     # ✅ Scanned
+└── services/
+    └── user/
+        └── service.go   # ✅ Scanned
+```
+
+### Excluded Directories
+
+Taskw automatically excludes certain directories:
+
+```
+internal/
+├── handlers/            # ✅ Scanned
+├── vendor/              # ❌ Excluded
+├── node_modules/        # ❌ Excluded
+└── .git/                # ❌ Excluded
+```
+
+## Common Configuration Patterns
+
+### API Project
+
+```yaml
+paths:
+  scan_dirs: 
+    - "./internal/handlers"
+    - "./internal/services"
+    - "./internal/repositories"
+  output_dir: "./internal/api"
+```
+
+### CLI Tool
+
+```yaml
+paths:
+  scan_dirs: 
+    - "./internal/cli"
+    - "./internal/services"
+  output_dir: "./internal/cli"
+```
+
+### Microservice
+
+```yaml
+paths:
+  scan_dirs: 
+    - "./internal/handlers"
+    - "./internal/services"
+    - "./internal/repositories"
+    - "./cmd/server"
+  output_dir: "./internal/api"
+```
+
+### Monorepo Structure
+
+```yaml
+paths:
+  scan_dirs: 
+    - "./services/api/internal"
+    - "./services/api/cmd"
+    - "./shared/pkg"
+  output_dir: "./services/api/internal/api"
+```
+
+## Path Resolution
+
+### Relative Paths
+
+Taskw resolves relative paths from the project root (where `taskw.yaml` is located):
+
+```yaml
+# If taskw.yaml is in /project/root/
+paths:
+  scan_dirs: ["./internal"]  # Resolves to /project/root/internal/
+  output_dir: "./generated"  # Resolves to /project/root/generated/
+```
+
+### Absolute Paths
+
+You can use absolute paths, but relative paths are recommended for portability:
+
+```yaml
+# ❌ Not recommended (absolute paths)
+paths:
+  scan_dirs: ["/home/user/project/internal"]
+  output_dir: "/home/user/project/generated"
+
+# ✅ Recommended (relative paths)
+paths:
+  scan_dirs: ["./internal"]
+  output_dir: "./generated"
+```
+
+## Output File Locations
+
+### Generated Files
+
+Based on your `output_dir` configuration, Taskw creates these files:
+
+```yaml
+paths:
+  output_dir: "./internal/api"
+generation:
+  routes:
+    output_file: "routes_gen.go"
+  dependencies:
+    output_file: "dependencies_gen.go"
+```
+
+Results in:
+
+```
+internal/
+└── api/
+    ├── routes_gen.go        # Generated route registration
+    └── dependencies_gen.go  # Generated dependency injection
+```
+
+### Custom File Names
+
+You can customize the output file names:
+
+```yaml
+paths:
+  output_dir: "./internal/api"
+generation:
+  routes:
+    output_file: "my_routes.go"
+  dependencies:
+    output_file: "wire_gen.go"
+```
+
+Results in:
+
+```
+internal/
+└── api/
+    ├── my_routes.go         # Custom route file
+    └── wire_gen.go          # Custom dependency file
+```
+
+## Directory Creation
+
+### Automatic Creation
+
+Taskw automatically creates the output directory if it doesn't exist:
+
+```yaml
+paths:
+  output_dir: "./internal/api"  # Will be created if missing
+```
+
+### Permission Requirements
+
+The output directory must be writable by the current user:
+
+```bash
+# Ensure directory is writable
+mkdir -p internal/api
+chmod 755 internal/api
+```
+
+## Validation
+
+### Path Validation
+
+Taskw validates paths and reports errors for:
+
+- **Non-existent scan directories**
+- **Non-writable output directories**
+- **Invalid path formats**
+
+### Validation Examples
+
+```bash
+taskw scan
+```
+
+Example output with path errors:
+
+```
+❌ Configuration error: Scan directory "./nonexistent" does not exist
+❌ Configuration error: Output directory "/root/protected" is not writable
+```
+
+## Best Practices
+
+### Use Relative Paths
+
+```yaml
+# ✅ Good
+paths:
+  scan_dirs: ["./internal", "./cmd"]
+  output_dir: "./internal/api"
+
+# ❌ Avoid
+paths:
+  scan_dirs: ["/absolute/path"]
+  output_dir: "/absolute/output"
+```
+
+### Organize by Feature
+
+```yaml
+# ✅ Well organized
+paths:
+  scan_dirs:
+    - "./internal/handlers"
+    - "./internal/services"
+    - "./internal/repositories"
+
+# ❌ Too broad
+paths:
+  scan_dirs: ["."]  # Scans everything
+```
+
+### Logical Output Location
+
+```yaml
+# ✅ Logical placement
+paths:
+  output_dir: "./internal/api"  # Near related code
+
+# ❌ Confusing placement
+paths:
+  output_dir: "./docs"  # Generated code in docs
+```
+
+### Avoid Conflicts
+
+```yaml
+# ✅ No conflicts
+paths:
+  output_dir: "./internal/api"
+generation:
+  routes:
+    output_file: "routes_gen.go"
+  dependencies:
+    output_file: "dependencies_gen.go"
+
+# ❌ Potential conflicts
+paths:
+  output_dir: "./internal/api"
+generation:
+  routes:
+    output_file: "gen.go"
+  dependencies:
+    output_file: "gen.go"  # Same filename!
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Generated files not found**: Check `output_dir` path and permissions
+
+**Handlers not detected**: Verify `scan_dirs` includes handler directories
+
+**Permission errors**: Ensure output directory is writable
+
+**Path resolution issues**: Use relative paths from project root
+
+### Debugging Commands
+
+```bash
+# Check current configuration
+taskw scan
+
+# Verify paths exist
+ls -la internal/
+ls -la cmd/
+
+# Check permissions
+ls -ld internal/api/
+
+# Test path resolution
+pwd  # Should be project root
+```
+
+### Path Examples
+
+Here are common path configurations for different project types:
+
+#### Simple API
+
+```yaml
+paths:
+  scan_dirs: ["./internal"]
+  output_dir: "./internal/api"
+```
+
+#### Complex API
+
+```yaml
+paths:
+  scan_dirs: 
+    - "./internal/handlers"
+    - "./internal/services"
+    - "./internal/repositories"
+    - "./cmd/server"
+  output_dir: "./internal/api"
+```
+
+#### CLI Tool
+
+```yaml
+paths:
+  scan_dirs: ["./internal"]
+  output_dir: "./internal/cli"
+```
+
+#### Library
+
+```yaml
+paths:
+  scan_dirs: ["./pkg"]
+  output_dir: "./pkg/generated"
+```

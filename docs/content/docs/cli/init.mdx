@@ -1,0 +1,166 @@
+---
+title: taskw init
+description: Initialize a new Taskw project with full scaffold
+icon: FolderPlus
+---
+
+# taskw init
+
+Initialize a new Taskw project by scaffolding a complete Go API project structure with Fiber, Wire, and Swagger integration.
+
+## Usage
+
+```bash
+taskw init [module]
+```
+
+## Arguments
+
+| Argument | Description | Required |
+|----------|-------------|----------|
+| `module` | Go module path (e.g., `github.com/user/project-name`) | No (interactive prompt if not provided) |
+
+## Description
+
+The `init` command creates a new Go project with the following structure:
+
+```
+project-name/
+├── cmd/
+│   └── server/
+│       └── main.go          # Main server entry point with Swagger docs
+├── internal/
+│   ├── api/
+│   │   ├── server.go        # Server struct and providers
+│   │   └── wire.go          # Wire dependency injection setup
+│   └── health/
+│       └── handler.go       # Example health check handler
+├── .air.toml               # Live reload configuration
+├── Taskfile.yml            # Task runner configuration
+├── taskw.yaml              # Taskw configuration
+└── go.mod                  # Go module file
+```
+
+## Examples
+
+### Interactive Mode
+
+```bash
+taskw init
+```
+
+This will prompt you to enter the module name:
+
+```
+Enter Go module path: github.com/myuser/ecommerce-api
+Creating project ecommerce-api...
+Project ecommerce-api created successfully
+```
+
+### Direct Module Specification
+
+```bash
+taskw init github.com/myuser/ecommerce-api
+```
+
+### Module Path Validation
+
+The module path must follow Go module naming conventions:
+
+- ✅ `github.com/user/project-name`
+- ✅ `gitlab.com/group/project`
+- ✅ `example.com/my-api`
+- ❌ `my-project` (missing domain)
+- ❌ `github.com/user` (missing project name)
+
+## Generated Files
+
+### Main Application
+
+- **`cmd/server/main.go`** - Entry point with Fiber server setup and Swagger documentation
+- **`internal/api/server.go`** - Server struct with provider functions
+- **`internal/api/wire.go`** - Wire dependency injection configuration
+
+### Example Handler
+
+- **`internal/health/handler.go`** - Health check endpoint demonstrating Taskw annotations
+
+### Configuration Files
+
+- **`.air.toml`** - Live reload configuration for development
+- **`Taskfile.yml`** - Task runner for common development tasks
+- **`taskw.yaml`** - Taskw configuration for code generation
+- **`go.mod`** - Go module definition
+
+## Project Structure
+
+The generated project follows Go project layout conventions:
+
+```
+project-name/
+├── cmd/                    # Application entry points
+│   └── server/            # Main server binary
+├── internal/              # Private application code
+│   ├── api/              # API-related code
+│   └── health/           # Health check handlers
+├── docs/                 # Documentation (if enabled)
+├── .air.toml            # Development configuration
+├── Taskfile.yml         # Build tasks
+├── taskw.yaml           # Taskw configuration
+└── go.mod               # Module definition
+```
+
+## Next Steps
+
+After initializing a project:
+
+1. **Navigate to the project directory:**
+   ```bash
+   cd project-name
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   go mod tidy
+   ```
+
+3. **Generate initial code:**
+   ```bash
+   taskw generate
+   ```
+
+4. **Start development server:**
+   ```bash
+   task run dev
+   ```
+
+## Error Handling
+
+The `init` command will fail if:
+
+- The module path is invalid
+- The project directory already exists
+- There are permission issues creating files
+- Required dependencies cannot be resolved
+
+## Configuration
+
+The generated `taskw.yaml` file includes sensible defaults:
+
+```yaml
+version: "1.0"
+project:
+  module: "github.com/user/project-name"
+paths:
+  scan_dirs: ["."]
+  output_dir: "."
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+You can customize these settings after project creation.

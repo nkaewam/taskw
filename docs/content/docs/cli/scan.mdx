@@ -1,0 +1,232 @@
+---
+title: taskw scan
+description: Preview what will be generated from your codebase
+icon: Search
+---
+
+# taskw scan
+
+Scan the codebase and display what handlers, routes, and providers would be generated. This is useful for previewing changes before running generate.
+
+## Usage
+
+```bash
+taskw scan
+```
+
+## Description
+
+The `scan` command analyzes your Go codebase to identify:
+
+- **Handler Functions** - Functions with `@Router` annotations
+- **Provider Functions** - Functions with `@Provider` annotations
+- **Route Definitions** - HTTP method and path combinations
+- **Dependency Relationships** - How providers are connected
+
+This command is particularly useful for:
+- Debugging annotation issues
+- Previewing what will be generated
+- Validating your code structure
+- Understanding the generation process
+
+## Examples
+
+### Basic Scan
+
+```bash
+taskw scan
+```
+
+Example output:
+
+```
+🔍 Scanning codebase...
+
+📋 Found 3 handlers:
+  • HealthHandler.GetHealth (GET /health)
+  • UserHandler.GetUser (GET /users/:id)
+  • UserHandler.CreateUser (POST /users)
+
+📦 Found 2 providers:
+  • NewHealthHandler() -> *HealthHandler
+  • NewUserHandler() -> *UserHandler
+
+✅ Scan completed successfully
+```
+
+### Scan with Validation
+
+The scan command also validates your annotations and reports any issues:
+
+```bash
+taskw scan
+```
+
+Example output with errors:
+
+```
+🔍 Scanning codebase...
+
+❌ Validation errors:
+  • UserHandler.GetUser: Invalid route path "/users/:id" (should use {id})
+  • Missing @Provider annotation for NewOrderHandler
+
+📋 Found 2 handlers:
+  • HealthHandler.GetHealth (GET /health)
+  • UserHandler.CreateUser (POST /users)
+
+📦 Found 1 provider:
+  • NewHealthHandler() -> *HealthHandler
+
+⚠️  Scan completed with validation errors
+```
+
+## What Gets Scanned
+
+### Handler Functions
+
+Functions with `@Router` annotations are identified and their route information is extracted:
+
+```go
+// @Router GET /health
+func (h *HealthHandler) GetHealth(c *fiber.Ctx) error {
+    return c.JSON(fiber.Map{"status": "ok"})
+}
+
+// @Router POST /users
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
+    // handler implementation
+}
+```
+
+### Provider Functions
+
+Functions with `@Provider` annotations are identified for dependency injection:
+
+```go
+// @Provider
+func NewHealthHandler() *HealthHandler {
+    return &HealthHandler{}
+}
+
+// @Provider
+func NewUserHandler(userService *UserService) *UserHandler {
+    return &UserHandler{service: userService}
+}
+```
+
+## Scan Configuration
+
+The scan behavior is controlled by the `taskw.yaml` configuration:
+
+```yaml
+paths:
+  scan_dirs: ["./internal", "./cmd"]  # Directories to scan
+  output_dir: "."                     # Output directory
+```
+
+### Scan Directories
+
+By default, Taskw scans the current directory (`.`). You can configure specific directories to scan:
+
+```yaml
+paths:
+  scan_dirs: 
+    - "./internal"
+    - "./cmd"
+    - "./pkg"
+```
+
+## Validation Rules
+
+The scan command validates your annotations against these rules:
+
+### Route Annotations
+
+- ✅ Valid HTTP methods: `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`, `OPTIONS`
+- ✅ Valid path formats: `/path`, `/path/{param}`, `/path/{param}/subpath`
+- ❌ Invalid path formats: `/path/:param` (use `{param}` instead)
+
+### Provider Annotations
+
+- ✅ Functions with `@Provider` annotation
+- ✅ Functions that return a concrete type
+- ❌ Functions without `@Provider` annotation
+- ❌ Functions that return interfaces
+
+## Error Types
+
+### Validation Errors
+
+- **Invalid Route Path** - Route paths don't follow the expected format
+- **Missing Annotations** - Functions that should have annotations but don't
+- **Malformed Annotations** - Annotations that can't be parsed
+
+### Scan Errors
+
+- **File Read Errors** - Cannot read Go files
+- **Parse Errors** - Go code has syntax errors
+- **Configuration Errors** - Invalid `taskw.yaml` configuration
+
+## Debugging with Scan
+
+### Check Annotation Syntax
+
+```bash
+taskw scan
+```
+
+Look for validation errors in the output to identify annotation issues.
+
+### Verify File Inclusion
+
+The scan only processes `.go` files in the configured scan directories. Make sure your files are included:
+
+```yaml
+paths:
+  scan_dirs: ["./internal", "./cmd", "./pkg"]
+```
+
+### Check for Missing Annotations
+
+The scan will report functions that should have annotations but don't:
+
+```
+❌ Missing @Provider annotation for NewOrderHandler
+```
+
+## Integration with Generate
+
+The scan command is designed to work seamlessly with the generate workflow:
+
+```bash
+# 1. Scan to preview changes
+taskw scan
+
+# 2. Fix any validation errors
+# ... edit your code ...
+
+# 3. Scan again to verify
+taskw scan
+
+# 4. Generate the code
+taskw generate
+```
+
+## Exit Codes
+
+- `0` - Scan completed successfully (with or without validation warnings)
+- `1` - Scan failed due to errors
+- `2` - Configuration error
+- `3` - File system error
+
+## Performance
+
+The scan command is designed to be fast and efficient:
+
+- Only processes `.go` files
+- Skips vendor directories
+- Uses Go's built-in AST parser
+- Caches results when possible
+
+For large codebases, the scan typically completes in under a second.

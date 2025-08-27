@@ -1,0 +1,555 @@
+---
+title: Generation Configuration
+description: Configure code generation options and output settings
+icon: Code
+---
+
+# Generation Configuration
+
+The `generation` section in your `taskw.yaml` configuration controls what code gets generated and how it's structured.
+
+## Configuration Structure
+
+```yaml
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+## Routes Generation
+
+Controls the generation of Fiber route registration code from handler functions with `@Router` annotations.
+
+### generation.routes.enabled
+
+**Type**: `boolean`  
+**Required**: No  
+**Default**: `true`  
+**Description**: Enable or disable route generation.
+
+```yaml
+generation:
+  routes:
+    enabled: true
+```
+
+**Examples**:
+```yaml
+# Enable route generation (default)
+enabled: true
+
+# Disable route generation (for CLI tools)
+enabled: false
+```
+
+### generation.routes.output_file
+
+**Type**: `string`  
+**Required**: No  
+**Default**: `"routes_gen.go"`  
+**Description**: Name of the generated route registration file.
+
+```yaml
+generation:
+  routes:
+    output_file: "routes_gen.go"
+```
+
+**Examples**:
+```yaml
+# Default name
+output_file: "routes_gen.go"
+
+# Custom name
+output_file: "my_routes.go"
+
+# With path (relative to output_dir)
+output_file: "internal/api/routes.go"
+```
+
+## Dependencies Generation
+
+Controls the generation of Wire dependency injection code from provider functions with `@Provider` annotations.
+
+### generation.dependencies.enabled
+
+**Type**: `boolean`  
+**Required**: No  
+**Default**: `true`  
+**Description**: Enable or disable dependency injection generation.
+
+```yaml
+generation:
+  dependencies:
+    enabled: true
+```
+
+**Examples**:
+```yaml
+# Enable dependency generation (default)
+enabled: true
+
+# Disable dependency generation
+enabled: false
+```
+
+### generation.dependencies.output_file
+
+**Type**: `string`  
+**Required**: No  
+**Default**: `"dependencies_gen.go"`  
+**Description**: Name of the generated dependency injection file.
+
+```yaml
+generation:
+  dependencies:
+    output_file: "dependencies_gen.go"
+```
+
+**Examples**:
+```yaml
+# Default name
+output_file: "dependencies_gen.go"
+
+# Custom name
+output_file: "wire_gen.go"
+
+# With path (relative to output_dir)
+output_file: "internal/api/wire.go"
+```
+
+## Generation Examples
+
+### Full API Project
+
+```yaml
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+**Generated Files**:
+```
+internal/api/
+├── routes_gen.go        # Route registration
+└── dependencies_gen.go  # Dependency injection
+```
+
+### CLI Tool (Dependencies Only)
+
+```yaml
+generation:
+  routes:
+    enabled: false        # No routes needed for CLI
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+**Generated Files**:
+```
+internal/cli/
+└── dependencies_gen.go  # Only dependency injection
+```
+
+### Routes Only
+
+```yaml
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: false        # No dependency injection
+    output_file: "dependencies_gen.go"
+```
+
+**Generated Files**:
+```
+internal/api/
+└── routes_gen.go        # Only route registration
+```
+
+### Custom File Names
+
+```yaml
+generation:
+  routes:
+    enabled: true
+    output_file: "my_routes.go"
+  dependencies:
+    enabled: true
+    output_file: "wire_gen.go"
+```
+
+**Generated Files**:
+```
+internal/api/
+├── my_routes.go         # Custom route file
+└── wire_gen.go          # Custom dependency file
+```
+
+## Generated Code Structure
+
+### Route Registration Code
+
+When `generation.routes.enabled: true`, Taskw generates route registration code:
+
+```go
+// routes_gen.go
+package api
+
+import (
+    "github.com/gofiber/fiber/v2"
+    "your-project/internal/handlers"
+)
+
+func RegisterRoutes(app *fiber.App, handlers *Handlers) {
+    app.Get("/health", handlers.Health.GetHealth)
+    app.Get("/users", handlers.User.GetUsers)
+    app.Post("/users", handlers.User.CreateUser)
+    app.Get("/users/{id}", handlers.User.GetUser)
+    // ... more routes
+}
+```
+
+### Dependency Injection Code
+
+When `generation.dependencies.enabled: true`, Taskw generates Wire dependency injection code:
+
+```go
+// dependencies_gen.go
+package api
+
+import (
+    "github.com/google/wire"
+    "your-project/internal/handlers"
+    "your-project/internal/services"
+    "your-project/internal/repositories"
+)
+
+var ProviderSet = wire.NewSet(
+    handlers.NewHealthHandler,
+    handlers.NewUserHandler,
+    services.NewUserService,
+    repositories.NewUserRepository,
+    // ... more providers
+)
+```
+
+## Generation Workflow
+
+### 1. Scan for Annotations
+
+Taskw scans the configured directories for:
+
+- **Handler Functions** with `@Router` annotations
+- **Provider Functions** with `@Provider` annotations
+
+### 2. Parse Annotations
+
+Taskw parses the annotations to extract:
+
+- **Route Information**: HTTP method and path
+- **Provider Information**: Function signatures and dependencies
+
+### 3. Generate Code
+
+Taskw generates the appropriate code based on your configuration:
+
+- **Routes**: If `routes.enabled: true`
+- **Dependencies**: If `dependencies.enabled: true`
+
+### 4. Write Files
+
+Taskw writes the generated files to the specified output location.
+
+## Configuration Best Practices
+
+### Enable Only What You Need
+
+```yaml
+# ✅ API project - enable both
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+
+# ✅ CLI tool - dependencies only
+generation:
+  routes:
+    enabled: false
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+### Use Descriptive File Names
+
+```yaml
+# ✅ Clear naming
+generation:
+  routes:
+    output_file: "routes_gen.go"
+  dependencies:
+    output_file: "wire_gen.go"
+
+# ❌ Unclear naming
+generation:
+  routes:
+    output_file: "gen.go"
+  dependencies:
+    output_file: "gen.go"  # Conflicts!
+```
+
+### Consistent Output Structure
+
+```yaml
+# ✅ Consistent structure
+paths:
+  output_dir: "./internal/api"
+generation:
+  routes:
+    output_file: "routes_gen.go"
+  dependencies:
+    output_file: "dependencies_gen.go"
+
+# Results in:
+# internal/api/routes_gen.go
+# internal/api/dependencies_gen.go
+```
+
+## Conditional Generation
+
+### Environment-Specific Generation
+
+You can use different configurations for different environments:
+
+```yaml
+# taskw.dev.yaml
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+
+# taskw.prod.yaml
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: false  # Disable in production
+    output_file: "dependencies_gen.go"
+```
+
+### Feature-Based Generation
+
+```yaml
+# Enable only specific features
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: false  # Disable if not using Wire
+    output_file: "dependencies_gen.go"
+```
+
+## Integration with Build Tools
+
+### Go Build Tags
+
+Generated files can include build tags for conditional compilation:
+
+```go
+//go:build !wireinject
+// +build !wireinject
+
+package api
+
+// Generated code here
+```
+
+### Makefile Integration
+
+```makefile
+.PHONY: generate
+generate:
+	taskw generate
+
+.PHONY: build
+build: generate
+	go build ./cmd/server
+```
+
+### Taskfile Integration
+
+```yaml
+# Taskfile.yml
+version: '3'
+
+tasks:
+  generate:
+    desc: Generate code
+    cmds:
+      - taskw generate
+
+  build:
+    desc: Build application
+    deps: [generate]
+    cmds:
+      - go build ./cmd/server
+```
+
+## Validation and Error Handling
+
+### Generation Validation
+
+Taskw validates generation settings and reports errors for:
+
+- **Invalid file names**
+- **Conflicting output files**
+- **Invalid boolean values**
+
+### Common Validation Errors
+
+```bash
+taskw generate
+```
+
+Example output with generation errors:
+
+```
+❌ Generation error: Invalid output file name "gen.go" (conflicts with dependencies)
+❌ Generation error: Invalid boolean value "yes" for routes.enabled
+```
+
+### Error Recovery
+
+If generation fails:
+
+1. **Check configuration** for syntax errors
+2. **Verify file permissions** for output directory
+3. **Review annotation syntax** in source files
+4. **Run scan command** to preview issues
+
+## Performance Considerations
+
+### Generation Speed
+
+Generation is typically very fast:
+
+- **Small projects**: < 100ms
+- **Medium projects**: 100-500ms
+- **Large projects**: 500ms-2s
+
+### Optimization Tips
+
+```yaml
+# ✅ Optimize scan directories
+paths:
+  scan_dirs: 
+    - "./internal/handlers"    # Specific directories
+    - "./internal/services"
+  # scan_dirs: ["."]          # ❌ Avoid scanning everything
+
+# ✅ Use appropriate output location
+paths:
+  output_dir: "./internal/api"  # Near related code
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**No routes generated**: Check `routes.enabled` and `@Router` annotations
+
+**No dependencies generated**: Check `dependencies.enabled` and `@Provider` annotations
+
+**Wrong file names**: Verify `output_file` settings
+
+**Generation errors**: Run `taskw scan` to preview issues
+
+### Debugging Commands
+
+```bash
+# Preview what will be generated
+taskw scan
+
+# Generate with verbose output
+taskw generate
+
+# Check generated files
+ls -la internal/api/
+
+# Validate configuration
+yamllint taskw.yaml
+```
+
+### Generation Examples
+
+Here are complete generation configurations for different project types:
+
+#### API Project
+
+```yaml
+version: "1.0"
+paths:
+  scan_dirs: ["./internal"]
+  output_dir: "./internal/api"
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+#### CLI Tool
+
+```yaml
+version: "1.0"
+paths:
+  scan_dirs: ["./internal"]
+  output_dir: "./internal/cli"
+generation:
+  routes:
+    enabled: false
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+#### Library
+
+```yaml
+version: "1.0"
+paths:
+  scan_dirs: ["./pkg"]
+  output_dir: "./pkg/generated"
+generation:
+  routes:
+    enabled: false
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```

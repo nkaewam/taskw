@@ -1,0 +1,116 @@
+---
+title: CLI Overview
+description: Learn about Taskw CLI commands and common patterns
+icon: Terminal
+---
+
+# CLI Overview
+
+Taskw provides a command-line interface for generating Go API code with Fiber, Wire, and Swagger integration. The CLI is built on top of Cobra and follows standard CLI conventions.
+
+## Command Structure
+
+```bash
+taskw [global-flags] <command> [subcommand] [flags] [arguments]
+```
+
+## Available Commands
+
+| Command | Description |
+|---------|-------------|
+| `init` | Initialize a new Taskw project with full scaffold |
+| `generate` | Generate code from annotated Go files |
+| `scan` | Preview what will be generated |
+| `clean` | Remove generated files |
+
+## Common Patterns
+
+### Configuration
+
+Taskw uses a `taskw.yaml` configuration file to define project settings. You can specify a custom config path using the `--config` flag:
+
+```bash
+taskw --config /path/to/taskw.yaml generate
+```
+
+### Code Generation Workflow
+
+The typical workflow for using Taskw involves:
+
+1. **Initialize** a new project or configure an existing one
+2. **Scan** to preview what will be generated
+3. **Generate** the actual code
+4. **Clean** when you need to regenerate or switch configurations
+
+```bash
+# Initialize a new project
+taskw init github.com/user/my-api
+
+# Preview generation
+taskw scan
+
+# Generate code
+taskw generate
+
+# Clean generated files
+taskw clean
+```
+
+### Global Flags
+
+All commands support these global flags:
+
+- `--config string` - Path to taskw.yaml config file
+- `--help, -h` - Show help for command
+- `--version` - Show version information
+
+### Exit Codes
+
+Taskw uses standard exit codes:
+
+- `0` - Success
+- `1` - General error
+- `2` - Configuration error
+- `3` - Generation error
+
+## Getting Help
+
+You can get help for any command using the `--help` flag:
+
+```bash
+taskw --help
+taskw init --help
+taskw generate --help
+```
+
+## Examples
+
+### Basic Project Setup
+
+```bash
+# Create a new project
+taskw init github.com/myuser/ecommerce-api
+
+# Navigate to project
+cd ecommerce-api
+
+# Generate initial code
+taskw generate
+```
+
+### Working with Existing Projects
+
+```bash
+# Scan existing codebase
+taskw scan
+
+# Generate only routes
+taskw generate routes
+
+# Generate only dependencies
+taskw generate deps
+
+# Clean and regenerate everything
+taskw clean
+taskw generate
+```

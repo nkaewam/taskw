@@ -1,0 +1,470 @@
+---
+title: Project Setup
+description: Project structure recommendations and setup guidelines
+icon: FolderOpen
+---
+
+# Project Setup
+
+This guide provides recommendations for setting up your Go project structure to work effectively with Taskw.
+
+## Recommended Project Structure
+
+Taskw works best with a well-organized project structure. Here are recommended layouts for different types of projects:
+
+### API Project Structure
+
+```
+my-api/
+├── cmd/
+│   └── server/
+│       └── main.go              # Application entry point
+├── internal/
+│   ├── api/
+│   │   ├── server.go            # Server struct and providers
+│   │   ├── routes_gen.go        # Generated route registration
+│   │   └── dependencies_gen.go  # Generated dependency injection
+│   ├── handlers/
+│   │   ├── user.go              # User handlers with @Router annotations
+│   │   ├── order.go             # Order handlers with @Router annotations
+│   │   └── health.go            # Health check handlers
+│   ├── services/
+│   │   ├── user_service.go      # Business logic with @Provider annotations
+│   │   └── order_service.go     # Business logic with @Provider annotations
+│   └── repositories/
+│       ├── user_repo.go         # Data access with @Provider annotations
+│       └── order_repo.go        # Data access with @Provider annotations
+├── docs/
+│   └── swagger.json             # Generated API documentation
+├── .air.toml                    # Live reload configuration
+├── Taskfile.yml                 # Task runner configuration
+├── taskw.yaml                   # Taskw configuration
+├── go.mod                       # Go module definition
+└── README.md                    # Project documentation
+```
+
+### CLI Tool Structure
+
+```
+my-cli/
+├── cmd/
+│   └── cli/
+│       └── main.go              # CLI entry point
+├── internal/
+│   ├── cli/
+│   │   ├── commands.go          # CLI commands with @Provider annotations
+│   │   └── dependencies_gen.go  # Generated dependency injection
+│   ├── services/
+│   │   ├── processor.go         # Business logic with @Provider annotations
+│   │   └── validator.go         # Validation logic with @Provider annotations
+│   └── utils/
+│       └── helpers.go           # Utility functions
+├── taskw.yaml                   # Taskw configuration
+├── go.mod                       # Go module definition
+└── README.md                    # Project documentation
+```
+
+### Microservice Structure
+
+```
+my-service/
+├── cmd/
+│   └── server/
+│       └── main.go              # Service entry point
+├── internal/
+│   ├── api/
+│   │   ├── server.go            # Server setup
+│   │   ├── routes_gen.go        # Generated routes
+│   │   └── dependencies_gen.go  # Generated dependencies
+│   ├── handlers/
+│   │   └── api.go               # API handlers with @Router annotations
+│   ├── services/
+│   │   └── business.go          # Business logic with @Provider annotations
+│   ├── repositories/
+│   │   └── data.go              # Data access with @Provider annotations
+│   └── config/
+│       └── config.go            # Configuration management
+├── pkg/
+│   └── shared/                  # Shared packages (if any)
+├── taskw.yaml                   # Taskw configuration
+├── go.mod                       # Go module definition
+└── README.md                    # Service documentation
+```
+
+## Directory Purposes
+
+### cmd/
+
+Contains the main entry points for your application.
+
+**Purpose**: Application binaries and entry points  
+**Convention**: One subdirectory per binary  
+**Example**: `cmd/server/main.go`, `cmd/cli/main.go`
+
+### internal/
+
+Contains private application code that shouldn't be imported by other projects.
+
+**Purpose**: Private application logic  
+**Convention**: Use `internal/` for code that shouldn't be exported  
+**Example**: `internal/handlers/`, `internal/services/`
+
+### pkg/
+
+Contains code that can be imported by other projects.
+
+**Purpose**: Public, reusable packages  
+**Convention**: Use `pkg/` for code that can be imported  
+**Example**: `pkg/utils/`, `pkg/models/`
+
+### docs/
+
+Contains generated documentation.
+
+**Purpose**: API documentation and specs  
+**Convention**: Generated files like Swagger docs  
+**Example**: `docs/swagger.json`, `docs/api.yaml`
+
+## Taskw Configuration for Different Structures
+
+### API Project Configuration
+
+```yaml
+version: "1.0"
+project:
+  module: "github.com/user/my-api"
+paths:
+  scan_dirs: 
+    - "./internal/handlers"
+    - "./internal/services"
+    - "./internal/repositories"
+  output_dir: "./internal/api"
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+### CLI Tool Configuration
+
+```yaml
+version: "1.0"
+project:
+  module: "github.com/user/my-cli"
+paths:
+  scan_dirs: 
+    - "./internal/cli"
+    - "./internal/services"
+  output_dir: "./internal/cli"
+generation:
+  routes:
+    enabled: false  # CLI tools don't need routes
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+### Microservice Configuration
+
+```yaml
+version: "1.0"
+project:
+  module: "github.com/user/my-service"
+paths:
+  scan_dirs: 
+    - "./internal/handlers"
+    - "./internal/services"
+    - "./internal/repositories"
+  output_dir: "./internal/api"
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+## File Organization Best Practices
+
+### Handler Organization
+
+Organize handlers by domain or feature:
+
+```
+internal/handlers/
+├── user/
+│   ├── user.go          # User CRUD operations
+│   └── auth.go          # Authentication handlers
+├── order/
+│   ├── order.go         # Order management
+│   └── payment.go       # Payment processing
+└── health/
+    └── health.go        # Health checks
+```
+
+### Service Organization
+
+Organize services by business domain:
+
+```
+internal/services/
+├── user/
+│   ├── user_service.go      # User business logic
+│   └── auth_service.go      # Authentication logic
+├── order/
+│   ├── order_service.go     # Order business logic
+│   └── payment_service.go   # Payment processing
+└── shared/
+    └── email_service.go     # Shared email service
+```
+
+### Repository Organization
+
+Organize repositories by data domain:
+
+```
+internal/repositories/
+├── user/
+│   ├── user_repo.go         # User data access
+│   └── session_repo.go      # Session data access
+├── order/
+│   ├── order_repo.go        # Order data access
+│   └── payment_repo.go      # Payment data access
+└── shared/
+    └── audit_repo.go        # Shared audit logging
+```
+
+## Annotation Placement
+
+### Handler Annotations
+
+Place `@Router` annotations on handler methods:
+
+```go
+// internal/handlers/user/user.go
+package user
+
+import "github.com/gofiber/fiber/v2"
+
+type UserHandler struct {
+    service *UserService
+}
+
+// @Router GET /users
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    // Implementation
+}
+
+// @Router POST /users
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
+    // Implementation
+}
+
+// @Router GET /users/{id}
+func (h *UserHandler) GetUser(c *fiber.Ctx) error {
+    // Implementation
+}
+```
+
+### Provider Annotations
+
+Place `@Provider` annotations on constructor functions:
+
+```go
+// internal/services/user/user_service.go
+package user
+
+// @Provider
+func NewUserService(repo *UserRepository) *UserService {
+    return &UserService{repo: repo}
+}
+
+// internal/repositories/user/user_repo.go
+package user
+
+// @Provider
+func NewUserRepository(db *gorm.DB) *UserRepository {
+    return &UserRepository{db: db}
+}
+```
+
+## Initialization Workflow
+
+### 1. Create Project Structure
+
+```bash
+# Initialize new project
+taskw init github.com/user/my-api
+
+# Navigate to project
+cd my-api
+```
+
+### 2. Configure Taskw
+
+Edit `taskw.yaml` to match your project structure:
+
+```yaml
+version: "1.0"
+project:
+  module: "github.com/user/my-api"
+paths:
+  scan_dirs: 
+    - "./internal/handlers"
+    - "./internal/services"
+    - "./internal/repositories"
+  output_dir: "./internal/api"
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+### 3. Add Handlers and Services
+
+Create your handlers and services with proper annotations:
+
+```bash
+# Create handler directory
+mkdir -p internal/handlers/user
+
+# Create handler file
+touch internal/handlers/user/user.go
+```
+
+### 4. Generate Code
+
+```bash
+# Scan to preview
+taskw scan
+
+# Generate code
+taskw generate
+```
+
+### 5. Test and Iterate
+
+```bash
+# Run the server
+go run cmd/server/main.go
+
+# Make changes and regenerate
+taskw generate
+```
+
+## Common Patterns
+
+### Handler-Service-Repository Pattern
+
+```
+Handler (HTTP layer)
+    ↓
+Service (Business logic)
+    ↓
+Repository (Data access)
+```
+
+### Dependency Injection
+
+```go
+// Wire will automatically wire these together
+// @Provider
+func NewUserHandler(service *UserService) *UserHandler {
+    return &UserHandler{service: service}
+}
+
+// @Provider
+func NewUserService(repo *UserRepository) *UserService {
+    return &UserService{repo: repo}
+}
+
+// @Provider
+func NewUserRepository(db *gorm.DB) *UserRepository {
+    return &UserRepository{db: db}
+}
+```
+
+### Error Handling
+
+```go
+// internal/handlers/user/user.go
+func (h *UserHandler) GetUser(c *fiber.Ctx) error {
+    id := c.Params("id")
+    
+    user, err := h.service.GetUser(id)
+    if err != nil {
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+            "error": "User not found",
+        })
+    }
+    
+    return c.JSON(user)
+}
+```
+
+## Migration from Existing Projects
+
+### 1. Analyze Current Structure
+
+```bash
+# Scan existing codebase
+taskw scan
+```
+
+### 2. Reorganize if Needed
+
+Move files to follow recommended structure:
+
+```bash
+# Create new structure
+mkdir -p internal/{handlers,services,repositories}
+
+# Move existing files
+mv handlers/* internal/handlers/
+mv services/* internal/services/
+mv repositories/* internal/repositories/
+```
+
+### 3. Add Annotations
+
+Add `@Router` and `@Provider` annotations to existing code.
+
+### 4. Update Configuration
+
+Create `taskw.yaml` with appropriate settings.
+
+### 5. Generate Code
+
+```bash
+taskw generate
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Generated files in wrong location**: Check `output_dir` in `taskw.yaml`
+
+**Missing handlers**: Verify `scan_dirs` includes handler directories
+
+**Dependency injection errors**: Ensure all providers have `@Provider` annotations
+
+**Route registration issues**: Check `@Router` annotation syntax
+
+### Validation
+
+```bash
+# Validate configuration
+taskw scan
+
+# Check generated files
+ls -la internal/api/
+```

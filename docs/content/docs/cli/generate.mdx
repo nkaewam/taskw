@@ -1,0 +1,238 @@
+---
+title: taskw generate
+description: Generate code from annotated Go files
+icon: Code
+---
+
+# taskw generate
+
+Generate various types of code from your annotated Go files, including route registration, dependency injection, and Swagger documentation.
+
+## Usage
+
+```bash
+taskw generate [subcommand]
+```
+
+## Subcommands
+
+| Subcommand | Description | Default |
+|------------|-------------|---------|
+| `all` | Generate routes and dependencies (default) | ✅ |
+| `routes` | Generate Fiber route registration | |
+| `deps` | Generate Wire dependency injection | |
+
+## Global Flags
+
+- `--config string` - Path to taskw.yaml config file
+
+## taskw generate all
+
+Generate both route registration and dependency injection code, plus Swagger documentation.
+
+### Usage
+
+```bash
+taskw generate all
+# or simply
+taskw generate
+```
+
+### Description
+
+This is the default command when no subcommand is specified. It generates:
+
+- **Route Registration** - Fiber route registration from handler functions with `@Router` annotations
+- **Dependency Injection** - Wire dependency injection setup from provider functions
+- **Swagger Documentation** - API documentation from handler annotations
+
+### Examples
+
+```bash
+# Generate everything
+taskw generate all
+
+# Same as above (default behavior)
+taskw generate
+```
+
+### Generated Files
+
+- `routes_gen.go` - Route registration code
+- `dependencies_gen.go` - Wire dependency injection code
+- `swagger.json` - Swagger API documentation
+
+## taskw generate routes
+
+Generate Fiber route registration from handler functions with `@Router` annotations.
+
+### Usage
+
+```bash
+taskw generate routes
+```
+
+### Description
+
+Scans your Go code for handler functions with `@Router` annotations and generates route registration code for Fiber.
+
+### Examples
+
+```bash
+# Generate only routes
+taskw generate routes
+```
+
+### Generated Files
+
+- `routes_gen.go` - Route registration code
+
+### Handler Annotation Example
+
+```go
+// @Router GET /health
+func (h *HealthHandler) GetHealth(c *fiber.Ctx) error {
+    return c.JSON(fiber.Map{"status": "ok"})
+}
+```
+
+## taskw generate deps
+
+Generate Wire dependency injection setup from provider functions.
+
+### Usage
+
+```bash
+taskw generate deps
+# or
+taskw generate dependencies
+```
+
+### Description
+
+Scans your Go code for provider functions and generates Wire dependency injection configuration.
+
+### Examples
+
+```bash
+# Generate only dependencies
+taskw generate deps
+
+# Alternative syntax
+taskw generate dependencies
+```
+
+### Generated Files
+
+- `dependencies_gen.go` - Wire dependency injection code
+
+### Provider Function Example
+
+```go
+// @Provider
+func NewHealthHandler() *HealthHandler {
+    return &HealthHandler{}
+}
+```
+
+## Configuration
+
+The generation behavior is controlled by the `taskw.yaml` configuration file:
+
+```yaml
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+### Generation Settings
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `routes.enabled` | Enable route generation | `true` |
+| `routes.output_file` | Output file for routes | `routes_gen.go` |
+| `dependencies.enabled` | Enable dependency generation | `true` |
+| `dependencies.output_file` | Output file for dependencies | `dependencies_gen.go` |
+
+## Workflow Examples
+
+### Complete Generation
+
+```bash
+# Generate everything
+taskw generate
+```
+
+### Selective Generation
+
+```bash
+# Only generate routes
+taskw generate routes
+
+# Only generate dependencies
+taskw generate deps
+```
+
+### Development Workflow
+
+```bash
+# 1. Scan to preview changes
+taskw scan
+
+# 2. Generate routes only
+taskw generate routes
+
+# 3. Test the changes
+go run cmd/server/main.go
+
+# 4. Generate dependencies if needed
+taskw generate deps
+```
+
+## Error Handling
+
+The generate commands will fail if:
+
+- Required annotations are missing or malformed
+- Output files cannot be written
+- Configuration is invalid
+- Go code has syntax errors
+
+## Integration with Wire
+
+When generating dependencies, Taskw creates Wire-compatible code:
+
+```go
+//go:build wireinject
+// +build wireinject
+
+package main
+
+import (
+    "github.com/google/wire"
+    "your-project/internal/api"
+)
+
+func InitializeServer() (*api.Server, error) {
+    wire.Build(
+        api.ProviderSet,
+        // ... other providers
+    )
+    return &api.Server{}, nil
+}
+```
+
+## Integration with Fiber
+
+When generating routes, Taskw creates Fiber-compatible route registration:
+
+```go
+func RegisterRoutes(app *fiber.App, handlers *Handlers) {
+    app.Get("/health", handlers.Health.GetHealth)
+    // ... other routes
+}
+```

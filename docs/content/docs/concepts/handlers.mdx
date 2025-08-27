@@ -1,0 +1,766 @@
+---
+title: Handler Functions
+description: Understanding handler function structure and best practices
+icon: MousePointer
+---
+
+# Handler Functions
+
+Handler functions are the HTTP endpoints of your API. They receive requests, process them, and return responses. Taskw scans for these functions and generates route registration code for Fiber.
+
+## Overview
+
+Handler functions are methods on handler structs that:
+- Accept a `*fiber.Ctx` parameter
+- Return an `error`
+- Have `@Router` annotations defining their HTTP routes
+
+For route generation, Taskw specifically looks for:
+- Functions with "Provide" prefix and "Handler" suffix (e.g., `ProvideUserHandler`)
+- These functions should return handler structs that contain the actual handler methods
+
+## Basic Handler Structure
+
+### Simple Handler
+
+```go
+type UserHandler struct {
+    service *UserService
+}
+
+// @Router /users [get]
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    users, err := h.service.GetUsers()
+    if err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "error": err.Error(),
+        })
+    }
+    return c.JSON(users)
+}
+
+// Provider function for dependency injection
+func ProvideUserHandler(service *UserService) *UserHandler {
+    return &UserHandler{service: service}
+}
+```
+
+### Handler with Dependencies
+
+```go
+type UserHandler struct {
+    service *UserService
+    logger  *log.Logger
+}
+
+// @Router GET /users/{id}
+func (h *UserHandler) GetUser(c *fiber.Ctx) error {
+    id := c.Params("id")
+    
+    h.logger.Printf("Getting user with ID: %s", id)
+    
+    user, err := h.service.GetUser(id)
+    if err != nil {
+        h.logger.Printf("Error getting user: %v", err)
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+            "error": "User not found",
+        })
+    }
+    
+    return c.JSON(user)
+}
+```
+
+## Handler Requirements
+
+### Must Have Receiver
+
+```go
+// ✅ Correct - has receiver
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    // Implementation
+}
+
+// ❌ Incorrect - no receiver
+func GetUsers(c *fiber.Ctx) error {
+    // Implementation
+}
+```
+
+### Must Accept Fiber Context
+
+```go
+// ✅ Correct - accepts *fiber.Ctx
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    // Implementation
+}
+
+// ❌ Incorrect - wrong parameter type
+func (h *UserHandler) GetUsers(c *gin.Context) error {
+    // Implementation
+}
+```
+
+### Must Return Error
+
+```go
+// ✅ Correct - returns error
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    // Implementation
+}
+
+// ❌ Incorrect - doesn't return error
+func (h *UserHandler) GetUsers(c *fiber.Ctx) {
+    // Implementation
+}
+```
+
+### Must Have @Router Annotation
+
+```go
+// ✅ Correct - has @Router annotation
+// @Router GET /users
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    // Implementation
+}
+
+// ❌ Incorrect - missing @Router annotation
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    // Implementation
+}
+```
+
+## Handler Patterns
+
+### RESTful CRUD Pattern
+
+```go
+type UserHandler struct {
+    service *UserService
+}
+
+// @Router GET /users
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    users, err := h.service.GetUsers()
+    if err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "error": err.Error(),
+        })
+    }
+    return c.JSON(users)
+}
+
+// @Router GET /users/{id}
+func (h *UserHandler) GetUser(c *fiber.Ctx) error {
+    id := c.Params("id")
+    user, err := h.service.GetUser(id)
+    if err != nil {
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+            "error": "User not found",
+        })
+    }
+    return c.JSON(user)
+}
+
+// @Router POST /users
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
+    var user User
+    if err := c.BodyParser(&user); err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "error": "Invalid request body",
+        })
+    }
+    
+    createdUser, err := h.service.CreateUser(&user)
+    if err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "error": err.Error(),
+        })
+    }
+    
+    return c.Status(fiber.StatusCreated).JSON(createdUser)
+}
+
+// @Router PUT /users/{id}
+func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
+    id := c.Params("id")
+    var user User
+    if err := c.BodyParser(&user); err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "error": "Invalid request body",
+        })
+    }
+    
+    updatedUser, err := h.service.UpdateUser(id, &user)
+    if err != nil {
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+            "error": "User not found",
+        })
+    }
+    
+    return c.JSON(updatedUser)
+}
+
+// @Router DELETE /users/{id}
+func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
+    id := c.Params("id")
+    err := h.service.DeleteUser(id)
+    if err != nil {
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+            "error": "User not found",
+        })
+    }
+    
+    return c.SendStatus(fiber.StatusNoContent)
+}
+```
+
+### Health Check Pattern
+
+```go
+type HealthHandler struct{}
+
+// @Router GET /health
+func (h *HealthHandler) GetHealth(c *fiber.Ctx) error {
+    return c.JSON(fiber.Map{
+        "status": "ok",
+        "timestamp": time.Now().UTC(),
+    })
+}
+
+// @Router GET /health/ready
+func (h *HealthHandler) GetReadiness(c *fiber.Ctx) error {
+    // Check if application is ready to serve traffic
+    return c.JSON(fiber.Map{
+        "status": "ready",
+        "timestamp": time.Now().UTC(),
+    })
+}
+
+// @Router GET /health/live
+func (h *HealthHandler) GetLiveness(c *fiber.Ctx) error {
+    // Check if application is alive
+    return c.JSON(fiber.Map{
+        "status": "alive",
+        "timestamp": time.Now().UTC(),
+    })
+}
+```
+
+### Search and Filter Pattern
+
+```go
+type UserHandler struct {
+    service *UserService
+}
+
+// @Router GET /users/search
+func (h *UserHandler) SearchUsers(c *fiber.Ctx) error {
+    query := c.Query("q")
+    page := c.Query("page", "1")
+    limit := c.Query("limit", "10")
+    
+    users, err := h.service.SearchUsers(query, page, limit)
+    if err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "error": err.Error(),
+        })
+    }
+    
+    return c.JSON(users)
+}
+
+// @Router GET /users/by-email
+func (h *UserHandler) GetUserByEmail(c *fiber.Ctx) error {
+    email := c.Query("email")
+    if email == "" {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "error": "Email parameter is required",
+        })
+    }
+    
+    user, err := h.service.GetUserByEmail(email)
+    if err != nil {
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+            "error": "User not found",
+        })
+    }
+    
+    return c.JSON(user)
+}
+```
+
+## Request Handling
+
+### Path Parameters
+
+```go
+// @Router GET /users/{id}
+func (h *UserHandler) GetUser(c *fiber.Ctx) error {
+    id := c.Params("id")
+    // Use id parameter
+}
+
+// @Router PUT /users/{id}/profile
+func (h *UserHandler) UpdateUserProfile(c *fiber.Ctx) error {
+    id := c.Params("id")
+    // Use id parameter
+}
+
+// @Router GET /orders/{orderId}/items/{itemId}
+func (h *OrderHandler) GetOrderItem(c *fiber.Ctx) error {
+    orderId := c.Params("orderId")
+    itemId := c.Params("itemId")
+    // Use both parameters
+}
+```
+
+### Query Parameters
+
+```go
+// @Router GET /users
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    page := c.Query("page", "1")
+    limit := c.Query("limit", "10")
+    search := c.Query("search")
+    sortBy := c.Query("sort_by", "created_at")
+    order := c.Query("order", "desc")
+    
+    // Use query parameters
+}
+```
+
+### Request Body
+
+```go
+// @Router POST /users
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
+    var user User
+    if err := c.BodyParser(&user); err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "error": "Invalid request body",
+        })
+    }
+    
+    // Validate user data
+    if user.Name == "" {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "error": "Name is required",
+        })
+    }
+    
+    // Process user creation
+}
+```
+
+### Headers
+
+```go
+// @Router GET /users/profile
+func (h *UserHandler) GetProfile(c *fiber.Ctx) error {
+    authToken := c.Get("Authorization")
+    if authToken == "" {
+        return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+            "error": "Authorization header required",
+        })
+    }
+    
+    // Validate token and get user profile
+}
+```
+
+## Response Handling
+
+### JSON Responses
+
+```go
+// @Router GET /users
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    users, err := h.service.GetUsers()
+    if err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "error": err.Error(),
+        })
+    }
+    
+    return c.JSON(fiber.Map{
+        "data": users,
+        "count": len(users),
+        "timestamp": time.Now().UTC(),
+    })
+}
+```
+
+### Error Responses
+
+```go
+// @Router GET /users/{id}
+func (h *UserHandler) GetUser(c *fiber.Ctx) error {
+    id := c.Params("id")
+    user, err := h.service.GetUser(id)
+    
+    if err != nil {
+        if errors.Is(err, ErrUserNotFound) {
+            return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+                "error": "User not found",
+                "id": id,
+            })
+        }
+        
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "error": "Internal server error",
+        })
+    }
+    
+    return c.JSON(user)
+}
+```
+
+### Status Codes
+
+```go
+// @Router POST /users
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
+    // ... validation and creation logic
+    
+    return c.Status(fiber.StatusCreated).JSON(createdUser)
+}
+
+// @Router DELETE /users/{id}
+func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
+    // ... deletion logic
+    
+    return c.SendStatus(fiber.StatusNoContent)
+}
+
+// @Router PUT /users/{id}
+func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
+    // ... update logic
+    
+    return c.Status(fiber.StatusOK).JSON(updatedUser)
+}
+```
+
+## Error Handling
+
+### Centralized Error Handling
+
+```go
+type UserHandler struct {
+    service *UserService
+    logger  *log.Logger
+}
+
+// @Router GET /users/{id}
+func (h *UserHandler) GetUser(c *fiber.Ctx) error {
+    id := c.Params("id")
+    
+    user, err := h.service.GetUser(id)
+    if err != nil {
+        return h.handleError(c, err, "failed to get user")
+    }
+    
+    return c.JSON(user)
+}
+
+func (h *UserHandler) handleError(c *fiber.Ctx, err error, message string) error {
+    h.logger.Printf("%s: %v", message, err)
+    
+    if errors.Is(err, ErrUserNotFound) {
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+            "error": "User not found",
+        })
+    }
+    
+    if errors.Is(err, ErrValidation) {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "error": err.Error(),
+        })
+    }
+    
+    return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+        "error": "Internal server error",
+    })
+}
+```
+
+### Validation Errors
+
+```go
+// @Router POST /users
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
+    var user User
+    if err := c.BodyParser(&user); err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "error": "Invalid request body",
+            "details": err.Error(),
+        })
+    }
+    
+    // Validate required fields
+    if user.Name == "" {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "error": "Name is required",
+            "field": "name",
+        })
+    }
+    
+    if user.Email == "" {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "error": "Email is required",
+            "field": "email",
+        })
+    }
+    
+    // Validate email format
+    if !isValidEmail(user.Email) {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "error": "Invalid email format",
+            "field": "email",
+        })
+    }
+    
+    // Process creation
+}
+```
+
+## Best Practices
+
+### Single Responsibility
+
+```go
+// ✅ Single responsibility
+// @Router GET /users
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    users, err := h.service.GetUsers()
+    if err != nil {
+        return h.handleError(c, err, "failed to get users")
+    }
+    return c.JSON(users)
+}
+
+// ❌ Multiple responsibilities
+// @Router GET /users
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    // Authentication
+    // Authorization
+    // Validation
+    // Business logic
+    // Database queries
+    // Response formatting
+    // Logging
+    // Error handling
+}
+```
+
+### Consistent Error Handling
+
+```go
+// ✅ Consistent error handling
+func (h *UserHandler) handleError(c *fiber.Ctx, err error, message string) error {
+    h.logger.Printf("%s: %v", message, err)
+    
+    switch {
+    case errors.Is(err, ErrNotFound):
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+            "error": "Resource not found",
+        })
+    case errors.Is(err, ErrValidation):
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "error": err.Error(),
+        })
+    default:
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "error": "Internal server error",
+        })
+    }
+}
+```
+
+### Input Validation
+
+```go
+// ✅ Proper input validation
+// @Router POST /users
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
+    var user User
+    if err := c.BodyParser(&user); err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "error": "Invalid request body",
+        })
+    }
+    
+    if err := h.validateUser(&user); err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "error": err.Error(),
+        })
+    }
+    
+    createdUser, err := h.service.CreateUser(&user)
+    if err != nil {
+        return h.handleError(c, err, "failed to create user")
+    }
+    
+    return c.Status(fiber.StatusCreated).JSON(createdUser)
+}
+
+func (h *UserHandler) validateUser(user *User) error {
+    if user.Name == "" {
+        return errors.New("name is required")
+    }
+    if user.Email == "" {
+        return errors.New("email is required")
+    }
+    if !isValidEmail(user.Email) {
+        return errors.New("invalid email format")
+    }
+    return nil
+}
+```
+
+### Logging
+
+```go
+// ✅ Proper logging
+type UserHandler struct {
+    service *UserService
+    logger  *log.Logger
+}
+
+// @Router GET /users/{id}
+func (h *UserHandler) GetUser(c *fiber.Ctx) error {
+    id := c.Params("id")
+    
+    h.logger.Printf("Getting user with ID: %s", id)
+    
+    user, err := h.service.GetUser(id)
+    if err != nil {
+        h.logger.Printf("Error getting user %s: %v", id, err)
+        return h.handleError(c, err, "failed to get user")
+    }
+    
+    h.logger.Printf("Successfully retrieved user %s", id)
+    return c.JSON(user)
+}
+```
+
+## Common Patterns
+
+### Pagination Pattern
+
+```go
+// @Router GET /users
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    page, _ := strconv.Atoi(c.Query("page", "1"))
+    limit, _ := strconv.Atoi(c.Query("limit", "10"))
+    
+    if page < 1 {
+        page = 1
+    }
+    if limit < 1 || limit > 100 {
+        limit = 10
+    }
+    
+    users, total, err := h.service.GetUsersPaginated(page, limit)
+    if err != nil {
+        return h.handleError(c, err, "failed to get users")
+    }
+    
+    return c.JSON(fiber.Map{
+        "data": users,
+        "pagination": fiber.Map{
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "pages": (total + limit - 1) / limit,
+        },
+    })
+}
+```
+
+### Search Pattern
+
+```go
+// @Router GET /users/search
+func (h *UserHandler) SearchUsers(c *fiber.Ctx) error {
+    query := c.Query("q")
+    if query == "" {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "error": "Search query is required",
+        })
+    }
+    
+    users, err := h.service.SearchUsers(query)
+    if err != nil {
+        return h.handleError(c, err, "failed to search users")
+    }
+    
+    return c.JSON(fiber.Map{
+        "data": users,
+        "query": query,
+        "count": len(users),
+    })
+}
+```
+
+### Bulk Operations Pattern
+
+```go
+// @Router POST /users/bulk
+func (h *UserHandler) CreateUsersBulk(c *fiber.Ctx) error {
+    var users []User
+    if err := c.BodyParser(&users); err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "error": "Invalid request body",
+        })
+    }
+    
+    createdUsers, errors := h.service.CreateUsersBulk(users)
+    
+    return c.JSON(fiber.Map{
+        "created": createdUsers,
+        "errors": errors,
+        "summary": fiber.Map{
+            "total": len(users),
+            "successful": len(createdUsers),
+            "failed": len(errors),
+        },
+    })
+}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Handler not detected**: Check receiver, parameter type, and return type
+
+**Route not generated**: Ensure `@Router` annotation is present and correctly formatted
+
+**Parameter parsing errors**: Validate request body and query parameters
+
+**Error handling**: Use consistent error response format
+
+### Debugging Commands
+
+```bash
+# Scan to see what handlers are detected
+taskw scan
+
+# Generate route registration code
+taskw generate routes
+
+# Test the generated routes
+go run ./cmd/server
+```
+
+### Validation
+
+Taskw validates handlers and reports issues:
+
+```
+❌ Validation errors:
+  • UserHandler.GetUser: Missing @Router annotation
+  • UserHandler.CreateUser: Invalid parameter type (expected *fiber.Ctx)
+  • UserHandler.UpdateUser: Invalid return type (expected error)
+```

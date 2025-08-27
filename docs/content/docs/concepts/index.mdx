@@ -1,0 +1,383 @@
+---
+title: How Taskw Works
+description: Understanding the scanning, analysis, and generation process
+icon: Cpu
+---
+
+# How Taskw Works
+
+Taskw is a code generator that automatically creates boilerplate code for Go APIs by analyzing your source code and extracting information from special annotations. Here's how the process works:
+
+## Overview
+
+Taskw follows a three-step process:
+
+1. **Scanning** - Find and parse Go files
+2. **Analysis** - Extract information from annotations
+3. **Generation** - Create boilerplate code
+
+```
+Source Code → Scanning → Analysis → Generation → Boilerplate Code
+```
+
+## Step 1: Scanning
+
+Taskw starts by scanning your configured directories for Go files.
+
+### File Discovery
+
+```yaml
+paths:
+  scan_dirs: ["./internal", "./cmd"]
+```
+
+Taskw scans these directories recursively, looking for `.go` files while automatically excluding:
+- Test files (`*_test.go`)
+- Vendor directories
+- Hidden directories (`.git`, `.vscode`, etc.)
+
+### File Filtering
+
+The scanner uses a hybrid approach:
+- **Fast file filtering** to identify candidate files
+- **AST parsing** for accurate code analysis
+
+This ensures both performance and accuracy.
+
+## Step 2: Analysis
+
+For each Go file, Taskw performs detailed analysis using Go's Abstract Syntax Tree (AST) parser.
+
+### AST Parsing
+
+Taskw uses Go's built-in AST parser to understand your code structure:
+
+```go
+// Taskw parses this into an AST
+func (h *UserHandler) GetUser(c *fiber.Ctx) error {
+    // Implementation
+}
+```
+
+The AST provides:
+- Function declarations and signatures
+- Type definitions
+- Import statements
+- Comments and annotations
+
+### Annotation Extraction
+
+Taskw looks for special annotations in your code:
+
+```go
+// @Router GET /users/{id}
+func (h *UserHandler) GetUser(c *fiber.Ctx) error {
+    // Implementation
+}
+
+// @Provider
+func NewUserHandler(service *UserService) *UserHandler {
+    return &UserHandler{service: service}
+}
+```
+
+### Pattern Recognition
+
+Taskw identifies different code patterns:
+
+- **Handler Functions** - Methods with Fiber context parameters
+- **Provider Functions** - Constructor functions with `@Provider` annotations
+- **Route Annotations** - `@Router` comments with HTTP method and path
+
+## Step 3: Generation
+
+Based on the analysis results, Taskw generates appropriate boilerplate code.
+
+### Route Registration
+
+For handler functions with `@Router` annotations, Taskw generates route registration code:
+
+```go
+// Generated routes_gen.go
+func RegisterRoutes(app *fiber.App, handlers *Handlers) {
+    app.Get("/users/{id}", handlers.User.GetUser)
+    app.Post("/users", handlers.User.CreateUser)
+    // ... more routes
+}
+```
+
+### Dependency Injection
+
+For provider functions with `@Provider` annotations, Taskw generates Wire dependency injection code:
+
+```go
+// Generated dependencies_gen.go
+var ProviderSet = wire.NewSet(
+    handlers.NewUserHandler,
+    services.NewUserService,
+    repositories.NewUserRepository,
+    // ... more providers
+)
+```
+
+## Internal Architecture
+
+### Scanner Components
+
+```
+Scanner
+├── FileFilter     # Fast file discovery
+├── ASTScanner     # Detailed code analysis
+└── Validation     # Error checking
+```
+
+### Generator Components
+
+```
+Generator
+├── RouteGenerator      # Route registration code
+├── DependencyGenerator # Wire dependency injection
+└── TemplateEngine     # Code template rendering
+```
+
+### Data Flow
+
+```
+Go Files → FileFilter → ASTScanner → ScanResult → Generator → Generated Files
+```
+
+## Processing Pipeline
+
+### 1. Configuration Loading
+
+```yaml
+# taskw.yaml
+paths:
+  scan_dirs: ["./internal"]
+  output_dir: "./internal/api"
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+### 2. Directory Scanning
+
+```
+internal/
+├── handlers/
+│   ├── user.go      # ✅ Scanned
+│   └── order.go     # ✅ Scanned
+├── services/
+│   └── user.go      # ✅ Scanned
+└── utils/
+    └── helpers.go   # ✅ Scanned
+```
+
+### 3. File Parsing
+
+For each `.go` file:
+
+```go
+// Parse file into AST
+node, err := parser.ParseFile(fset, filePath, nil, parser.ParseComments)
+
+// Walk AST to find functions and types
+ast.Inspect(node, func(n ast.Node) bool {
+    switch x := n.(type) {
+    case *ast.FuncDecl:
+        processFuncDecl(x, packageName, filePath, result)
+    case *ast.TypeSpec:
+        processTypeSpec(x, packageName, filePath, result)
+    }
+    return true
+})
+```
+
+### 4. Annotation Processing
+
+Extract information from annotations:
+
+```go
+// @Router GET /users/{id}
+// Extracts: method="GET", path="/users/{id}"
+
+// @Provider
+// Extracts: provider function for dependency injection
+```
+
+### 5. Code Generation
+
+Generate boilerplate using templates:
+
+```go
+// Template-based generation
+template := `func RegisterRoutes(app *fiber.App, handlers *Handlers) {
+    {{range .Routes}}
+    app.{{.Method}}("{{.Path}}", handlers.{{.Handler}}.{{.Method}})
+    {{end}}
+}`
+```
+
+## Performance Optimizations
+
+### Parallel Processing
+
+Taskw processes multiple files in parallel for better performance:
+
+```go
+// Parallel file processing
+var wg sync.WaitGroup
+for _, file := range files {
+    wg.Add(1)
+    go func(filePath string) {
+        defer wg.Done()
+        result := s.astScanner.ScanFile(filePath)
+        // Process result
+    }(file)
+}
+wg.Wait()
+```
+
+### Caching
+
+Taskw caches parsed ASTs and scan results to avoid redundant work.
+
+### Incremental Processing
+
+Only processes files that have changed since the last generation.
+
+## Error Handling
+
+### Validation Pipeline
+
+Taskw validates at multiple stages:
+
+1. **Configuration Validation** - Check `taskw.yaml` syntax
+2. **Path Validation** - Verify scan directories exist
+3. **File Validation** - Check Go file syntax
+4. **Annotation Validation** - Validate annotation format
+5. **Generation Validation** - Ensure generated code compiles
+
+### Error Reporting
+
+Taskw provides detailed error messages:
+
+```
+❌ Validation errors:
+  • UserHandler.GetUser: Invalid route path "/users/:id" (should use {id})
+  • Missing @Provider annotation for NewOrderHandler
+```
+
+## Integration Points
+
+### Go Build System
+
+Generated files integrate seamlessly with Go's build system:
+
+```go
+//go:build !wireinject
+// +build !wireinject
+
+package api
+
+// Generated code here
+```
+
+### IDE Support
+
+Generated files are compatible with Go tooling:
+- `go build`
+- `go mod tidy`
+- IDE autocomplete
+- Static analysis tools
+
+### Version Control
+
+Generated files can be:
+- Included in version control (for consistency)
+- Excluded from version control (regenerated on build)
+- Used in CI/CD pipelines
+
+## Development Workflow
+
+### Typical Workflow
+
+```bash
+# 1. Write handlers with annotations
+# internal/handlers/user.go
+// @Router GET /users/{id}
+func (h *UserHandler) GetUser(c *fiber.Ctx) error {
+    // Implementation
+}
+
+# 2. Scan to preview
+taskw scan
+
+# 3. Generate code
+taskw generate
+
+# 4. Build and test
+go build ./cmd/server
+```
+
+### Iterative Development
+
+```bash
+# Make changes to handlers
+# ...
+
+# Regenerate code
+taskw generate
+
+# Test changes
+go run ./cmd/server
+```
+
+## Advanced Features
+
+### Custom Templates
+
+Taskw uses Go templates for code generation, allowing for customization.
+
+### Plugin System
+
+Future versions may support plugins for custom generators.
+
+### Multi-Language Support
+
+While currently focused on Go, the architecture supports other languages.
+
+## Understanding the Process
+
+### Why This Approach?
+
+1. **Accuracy** - AST parsing ensures correct code understanding
+2. **Performance** - Hybrid approach balances speed and accuracy
+3. **Flexibility** - Template-based generation allows customization
+4. **Reliability** - Validation at multiple stages catches errors early
+
+### Benefits
+
+- **Reduced Boilerplate** - Automatically generate repetitive code
+- **Consistency** - Ensures uniform code structure
+- **Maintainability** - Changes in annotations automatically update generated code
+- **Developer Experience** - Focus on business logic, not boilerplate
+
+### Limitations
+
+- **Annotation Required** - Must use specific annotation format
+- **Go Only** - Currently supports only Go code
+- **Learning Curve** - Requires understanding of annotation syntax
+
+## Next Steps
+
+Now that you understand how Taskw works, explore:
+
+- **[Annotations](/docs/concepts/annotations)** - Learn about `@Router` and `@Provider` annotations
+- **[Handlers](/docs/concepts/handlers)** - Understand handler function patterns
+- **[Providers](/docs/concepts/providers)** - Learn about provider functions and Wire integration
+- **[Code Generation](/docs/concepts/code-generation)** - See what gets generated and why

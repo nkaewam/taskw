@@ -6,27 +6,27 @@ This document outlines all the documentation pages needed for the Taskw project 
 
 ### 1. Getting Started
 
-- [ ] **overview.mdx** - Project overview, what problems it solves, key features
-- [ ] **installation.mdx** - Installation methods (go install, binary downloads, build from source)
-- [ ] **quick-start.mdx** - 5-minute tutorial from zero to working API
-- [ ] **migration.mdx** - How to migrate existing Fiber/Wire projects to use Taskw
+- [x] **overview.mdx** - Project overview, what problems it solves, key features
+- [x] **installation.mdx** - Installation methods (go install, binary downloads, build from source)
+- [x] **quick-start.mdx** - 5-minute tutorial from zero to working API
+- [x] **migration.mdx** - How to migrate existing Fiber/Wire projects to use Taskw
 
 ### 2. CLI Reference
 
-- [ ] **cli/index.mdx** - CLI overview and common patterns
-- [ ] **cli/init.mdx** - `taskw init` command documentation
-- [ ] **cli/generate.mdx** - `taskw generate` and its subcommands (all, routes, deps)
-- [ ] **cli/scan.mdx** - `taskw scan` command for debugging and preview
-- [ ] **cli/clean.mdx** - `taskw clean` command for cleanup
-- [ ] **cli/flags.mdx** - Global flags and configuration options
+- [x] **cli/index.mdx** - CLI overview and common patterns
+- [x] **cli/init.mdx** - `taskw init` command documentation
+- [x] **cli/generate.mdx** - `taskw generate` and its subcommands (all, routes, deps)
+- [x] **cli/scan.mdx** - `taskw scan` command for debugging and preview
+- [x] **cli/clean.mdx** - `taskw clean` command for cleanup
+- [x] **cli/flags.mdx** - Global flags and configuration options
 
 ### 3. Configuration
 
-- [ ] **config/index.mdx** - Configuration overview and structure
-- [ ] **config/taskw-yaml.mdx** - Complete taskw.yaml reference
-- [ ] **config/project-setup.mdx** - Project structure recommendations
-- [ ] **config/paths.mdx** - Path configuration and scanning directories
-- [ ] **config/generation.mdx** - Generation options and output configuration
+- [x] **config/index.mdx** - Configuration overview and structure
+- [x] **config/taskw-yaml.mdx** - Complete taskw.yaml reference
+- [x] **config/project-setup.mdx** - Project structure recommendations
+- [x] **config/paths.mdx** - Path configuration and scanning directories
+- [x] **config/generation.mdx** - Generation options and output configuration
 
 ### 4. Core Concepts
 

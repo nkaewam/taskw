@@ -1,0 +1,530 @@
+---
+title: Annotations
+description: Understanding @Router and @Provider annotations
+icon: Hash
+---
+
+# Annotations
+
+Taskw uses special annotations to understand your code structure and generate appropriate boilerplate. These annotations are Go comments that follow specific patterns.
+
+## Overview
+
+Taskw recognizes one main type of annotation:
+
+- **`@Router`** - Defines HTTP routes for handler functions
+
+For dependency injection, Taskw automatically detects functions with the "Provide" prefix.
+
+## @Router Annotations
+
+The `@Router` annotation defines HTTP routes for your handler functions. It tells Taskw how to register routes with Fiber.
+
+### Basic Syntax
+
+```go
+// @Router /path [method]
+func (h *Handler) Method(c *fiber.Ctx) error {
+    // Implementation
+}
+```
+
+### Supported Format
+
+Taskw supports the Swaggo specification format for `@Router` annotations:
+
+#### Swaggo Format
+
+```go
+// @Router /users [get]
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    // Implementation
+}
+
+// @Router /users [post]
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
+    // Implementation
+}
+
+// @Router /users/{id} [get]
+func (h *UserHandler) GetUser(c *fiber.Ctx) error {
+    // Implementation
+}
+```
+
+### HTTP Methods
+
+Taskw supports all standard HTTP methods:
+
+```go
+// @Router /users [get]
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error { }
+
+// @Router /users [post]
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error { }
+
+// @Router /users/{id} [put]
+func (h *UserHandler) UpdateUser(c *fiber.Ctx) error { }
+
+// @Router /users/{id} [delete]
+func (h *UserHandler) DeleteUser(c *fiber.Ctx) error { }
+
+// @Router /users/{id} [patch]
+func (h *UserHandler) PatchUser(c *fiber.Ctx) error { }
+
+// @Router /health [head]
+func (h *HealthHandler) HeadHealth(c *fiber.Ctx) error { }
+
+// @Router /users [options]
+func (h *UserHandler) OptionsUsers(c *fiber.Ctx) error { }
+```
+
+### Path Parameters
+
+Use curly braces `{}` for path parameters:
+
+```go
+// @Router GET /users/{id}
+func (h *UserHandler) GetUser(c *fiber.Ctx) error {
+    id := c.Params("id")
+    // Implementation
+}
+
+// @Router PUT /users/{id}/profile
+func (h *UserHandler) UpdateUserProfile(c *fiber.Ctx) error {
+    id := c.Params("id")
+    // Implementation
+}
+
+// @Router GET /orders/{orderId}/items/{itemId}
+func (h *OrderHandler) GetOrderItem(c *fiber.Ctx) error {
+    orderId := c.Params("orderId")
+    itemId := c.Params("itemId")
+    // Implementation
+}
+```
+
+### Nested Routes
+
+Organize routes hierarchically:
+
+```go
+// @Router GET /api/v1/users
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error { }
+
+// @Router GET /api/v1/users/{id}
+func (h *UserHandler) GetUser(c *fiber.Ctx) error { }
+
+// @Router POST /api/v1/users
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error { }
+
+// @Router PUT /api/v1/users/{id}
+func (h *UserHandler) UpdateUser(c *fiber.Ctx) error { }
+
+// @Router DELETE /api/v1/users/{id}
+func (h *UserHandler) DeleteUser(c *fiber.Ctx) error { }
+```
+
+### Query Parameters
+
+While not part of the annotation, you can access query parameters in your handlers:
+
+```go
+// @Router GET /users
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    page := c.Query("page", "1")
+    limit := c.Query("limit", "10")
+    search := c.Query("search")
+    // Implementation
+}
+```
+
+## Provider Functions
+
+Taskw automatically detects provider functions by looking for functions with the "Provide" prefix. These functions are used for dependency injection with Wire.
+
+### Basic Syntax
+
+```go
+func ProvideHandler(deps *Dependencies) *Handler {
+    return &Handler{deps: deps}
+}
+```
+
+### Provider Function Patterns
+
+#### Constructor Functions
+
+```go
+func ProvideUserHandler(service *UserService) *UserHandler {
+    return &UserHandler{service: service}
+}
+
+func ProvideUserService(repo *UserRepository) *UserService {
+    return &UserService{repo: repo}
+}
+
+func ProvideUserRepository(db *gorm.DB) *UserRepository {
+    return &UserRepository{db: db}
+}
+```
+
+#### Interface Implementations
+
+```go
+func ProvideUserService(repo UserRepository) UserService {
+    return &userService{repo: repo}
+}
+
+func ProvideUserRepository(db *gorm.DB) UserRepository {
+    return &userRepository{db: db}
+}
+```
+
+#### Configuration Providers
+
+```go
+func ProvideConfig() *Config {
+    return &Config{
+        DatabaseURL: os.Getenv("DATABASE_URL"),
+        Port:        os.Getenv("PORT"),
+    }
+}
+
+func ProvideDatabase(config *Config) (*gorm.DB, error) {
+    return gorm.Open(postgres.Open(config.DatabaseURL), &gorm.Config{})
+}
+```
+
+### Dependency Chain
+
+Taskw automatically resolves dependency chains:
+
+```go
+func ProvideUserHandler(service *UserService) *UserHandler {
+    return &UserHandler{service: service}
+}
+
+func ProvideUserService(repo *UserRepository) *UserService {
+    return &UserService{repo: repo}
+}
+
+func ProvideUserRepository(db *gorm.DB) *UserRepository {
+    return &UserRepository{db: db}
+}
+
+func ProvideDatabase(config *Config) (*gorm.DB, error) {
+    return gorm.Open(postgres.Open(config.DatabaseURL), &gorm.Config{})
+}
+```
+
+Generated dependency injection:
+
+```go
+// Generated dependencies_gen.go
+var ProviderSet = wire.NewSet(
+    handlers.ProvideUserHandler,
+    services.ProvideUserService,
+    repositories.ProvideUserRepository,
+    ProvideDatabase,
+)
+```
+
+## Annotation Placement
+
+### Handler Annotations
+
+Place `@Router` annotations directly above handler methods:
+
+```go
+type UserHandler struct {
+    service *UserService
+}
+
+// @Router GET /users
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    // Implementation
+}
+
+// @Router POST /users
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
+    // Implementation
+}
+```
+
+### Provider Functions
+
+Place provider functions with the "Provide" prefix:
+
+```go
+func ProvideUserHandler(service *UserService) *UserHandler {
+    return &UserHandler{service: service}
+}
+
+func ProvideUserService(repo *UserRepository) *UserService {
+    return &UserService{repo: repo}
+}
+```
+
+## Validation Rules
+
+### Route Validation
+
+Taskw validates route annotations:
+
+- ✅ Valid HTTP methods: `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`, `OPTIONS`
+- ✅ Valid path formats: `/path`, `/path/{param}`, `/path/{param}/subpath`
+- ❌ Invalid path formats: `/path/:param` (use `{param}` instead)
+
+### Provider Validation
+
+Taskw validates provider functions:
+
+- ✅ Functions with "Provide" prefix
+- ✅ Functions that return a concrete type
+- ❌ Functions without "Provide" prefix
+- ❌ Functions that return interfaces (unless explicitly supported)
+
+## Common Patterns
+
+### RESTful API Pattern
+
+```go
+type UserHandler struct {
+    service *UserService
+}
+
+// @Router GET /users
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error { }
+
+// @Router GET /users/{id}
+func (h *UserHandler) GetUser(c *fiber.Ctx) error { }
+
+// @Router POST /users
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error { }
+
+// @Router PUT /users/{id}
+func (h *UserHandler) UpdateUser(c *fiber.Ctx) error { }
+
+// @Router DELETE /users/{id}
+func (h *UserHandler) DeleteUser(c *fiber.Ctx) error { }
+```
+
+### Service Layer Pattern
+
+```go
+func ProvideUserHandler(service *UserService) *UserHandler {
+    return &UserHandler{service: service}
+}
+
+func ProvideUserService(repo *UserRepository) *UserService {
+    return &UserService{repo: repo}
+}
+
+func ProvideUserRepository(db *gorm.DB) *UserRepository {
+    return &UserRepository{db: db}
+}
+```
+
+### Health Check Pattern
+
+```go
+type HealthHandler struct{}
+
+// @Router /health [get]
+func (h *HealthHandler) GetHealth(c *fiber.Ctx) error {
+    return c.JSON(fiber.Map{"status": "ok"})
+}
+
+func ProvideHealthHandler() *HealthHandler {
+    return &HealthHandler{}
+}
+```
+
+## Error Handling
+
+### Invalid Annotations
+
+Taskw reports annotation errors:
+
+```
+❌ Validation errors:
+  • UserHandler.GetUser: Invalid route path "/users/:id" (should use {id})
+  • Missing "Provide" prefix for NewOrderHandler
+```
+
+### Missing Annotations
+
+Taskw can detect missing annotations:
+
+```
+⚠️  Warnings:
+  • UserHandler.GetUser: Handler function found but no @Router annotation
+  • NewOrderHandler: Function found but no "Provide" prefix
+```
+
+## Best Practices
+
+### Use Consistent Naming
+
+```go
+// ✅ Consistent naming
+// @Router GET /users
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error { }
+
+// @Router GET /users/{id}
+func (h *UserHandler) GetUser(c *fiber.Ctx) error { }
+
+// ❌ Inconsistent naming
+// @Router GET /users
+func (h *UserHandler) ListUsers(c *fiber.Ctx) error { }
+```
+
+### Group Related Routes
+
+```go
+// Group user-related routes
+// @Router GET /users
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error { }
+
+// @Router GET /users/{id}
+func (h *UserHandler) GetUser(c *fiber.Ctx) error { }
+
+// @Router POST /users
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error { }
+
+// Group order-related routes
+// @Router GET /orders
+func (h *OrderHandler) GetOrders(c *fiber.Ctx) error { }
+
+// @Router GET /orders/{id}
+func (h *OrderHandler) GetOrder(c *fiber.Ctx) error { }
+```
+
+### Use Descriptive Provider Names
+
+```go
+// ✅ Descriptive names
+// @Provider
+func NewUserHandler(service *UserService) *UserHandler { }
+
+// @Provider
+func NewUserService(repo *UserRepository) *UserService { }
+
+// ❌ Unclear names
+// @Provider
+func NewHandler(deps *Deps) *Handler { }
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Route not generated**: Check `@Router` annotation syntax and placement
+
+**Provider not found**: Ensure function name starts with "Provide"
+
+**Invalid path format**: Use `{param}` instead of `:param`
+
+**Missing dependencies**: Check provider function signatures
+
+### Debugging Commands
+
+```bash
+# Scan to see what's detected
+taskw scan
+
+# Check for validation errors
+taskw scan 2>&1 | grep "❌"
+
+# Preview generated code
+taskw generate
+```
+
+### Annotation Examples
+
+Here are complete examples of well-annotated code:
+
+#### User Handler
+
+```go
+package user
+
+import "github.com/gofiber/fiber/v2"
+
+type UserHandler struct {
+    service *UserService
+}
+
+// @Router /users [get]
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
+    users, err := h.service.GetUsers()
+    if err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "error": err.Error(),
+        })
+    }
+    return c.JSON(users)
+}
+
+// @Router /users/{id} [get]
+func (h *UserHandler) GetUser(c *fiber.Ctx) error {
+    id := c.Params("id")
+    user, err := h.service.GetUser(id)
+    if err != nil {
+        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+            "error": "User not found",
+        })
+    }
+    return c.JSON(user)
+}
+
+// @Router /users [post]
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
+    var user User
+    if err := c.BodyParser(&user); err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "error": "Invalid request body",
+        })
+    }
+    
+    createdUser, err := h.service.CreateUser(&user)
+    if err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "error": err.Error(),
+        })
+    }
+    
+    return c.Status(fiber.StatusCreated).JSON(createdUser)
+}
+
+func ProvideUserHandler(service *UserService) *UserHandler {
+    return &UserHandler{service: service}
+}
+```
+
+#### Service Layer
+
+```go
+package user
+
+func ProvideUserService(repo *UserRepository) *UserService {
+    return &UserService{repo: repo}
+}
+
+type UserService struct {
+    repo *UserRepository
+}
+
+func (s *UserService) GetUsers() ([]User, error) {
+    return s.repo.FindAll()
+}
+
+func (s *UserService) GetUser(id string) (*User, error) {
+    return s.repo.FindByID(id)
+}
+
+func (s *UserService) CreateUser(user *User) (*User, error) {
+    return s.repo.Create(user)
+}
+```

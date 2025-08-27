@@ -1,0 +1,354 @@
+---
+title: Global Flags & Configuration
+description: Global flags and configuration options for Taskw CLI
+icon: Settings
+---
+
+# Global Flags & Configuration
+
+Taskw provides global flags and configuration options to customize its behavior across all commands.
+
+## Global Flags
+
+All Taskw commands support these global flags:
+
+### --config
+
+Specify a custom path to the `taskw.yaml` configuration file.
+
+```bash
+taskw --config /path/to/taskw.yaml generate
+taskw --config ./config/taskw.yaml scan
+```
+
+**Default**: `taskw.yaml` in the current directory
+
+### --help, -h
+
+Display help information for the command.
+
+```bash
+taskw --help
+taskw init --help
+taskw generate --help
+```
+
+### --version
+
+Display the Taskw version information.
+
+```bash
+taskw --version
+```
+
+## Configuration File
+
+Taskw uses a YAML configuration file (`taskw.yaml`) to define project settings and generation behavior.
+
+### File Location
+
+Taskw looks for the configuration file in this order:
+
+1. Path specified by `--config` flag
+2. `taskw.yaml` in the current directory
+3. Default configuration (if no file exists)
+
+### Configuration Structure
+
+```yaml
+version: "1.0"
+project:
+  module: "github.com/user/project-name"
+paths:
+  scan_dirs: ["."]
+  output_dir: "."
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+## Configuration Sections
+
+### version
+
+The configuration file version.
+
+```yaml
+version: "1.0"
+```
+
+### project
+
+Project-specific settings.
+
+```yaml
+project:
+  module: "github.com/user/project-name"  # Go module name
+```
+
+**module**: The Go module name (auto-detected from `go.mod` if not specified)
+
+### paths
+
+File system path configurations.
+
+```yaml
+paths:
+  scan_dirs: ["./internal", "./cmd"]  # Directories to scan
+  output_dir: "."                     # Output directory for generated files
+```
+
+**scan_dirs**: Array of directories to scan for Go files (default: `["."]`)
+
+**output_dir**: Directory where generated files will be placed (default: `"."`)
+
+### generation
+
+Code generation settings.
+
+```yaml
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+#### routes
+
+Route generation configuration.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `enabled` | boolean | `true` | Enable route generation |
+| `output_file` | string | `"routes_gen.go"` | Output file name |
+
+#### dependencies
+
+Dependency injection generation configuration.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `enabled` | boolean | `true` | Enable dependency generation |
+| `output_file` | string | `"dependencies_gen.go"` | Output file name |
+
+## Configuration Examples
+
+### Basic Configuration
+
+```yaml
+version: "1.0"
+project:
+  module: "github.com/myuser/ecommerce-api"
+paths:
+  scan_dirs: ["."]
+  output_dir: "."
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+### Multi-Directory Scan
+
+```yaml
+version: "1.0"
+project:
+  module: "github.com/myuser/large-project"
+paths:
+  scan_dirs: 
+    - "./internal"
+    - "./cmd"
+    - "./pkg"
+  output_dir: "./internal/api"
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+### Custom Output Files
+
+```yaml
+version: "1.0"
+project:
+  module: "github.com/myuser/custom-project"
+paths:
+  scan_dirs: ["."]
+  output_dir: "."
+generation:
+  routes:
+    enabled: true
+    output_file: "my_routes.go"
+  dependencies:
+    enabled: true
+    output_file: "my_deps.go"
+```
+
+### Disable Specific Generation
+
+```yaml
+version: "1.0"
+project:
+  module: "github.com/myuser/routes-only"
+paths:
+  scan_dirs: ["."]
+  output_dir: "."
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: false  # Disable dependency generation
+    output_file: "dependencies_gen.go"
+```
+
+## Environment Variables
+
+While not currently supported, future versions may support environment variable overrides:
+
+```bash
+export TASKW_CONFIG_PATH="/path/to/taskw.yaml"
+export TASKW_SCAN_DIRS="./internal,./cmd"
+export TASKW_OUTPUT_DIR="./generated"
+```
+
+## Configuration Validation
+
+Taskw validates the configuration file and reports errors for:
+
+- **Invalid YAML syntax**
+- **Missing required fields**
+- **Invalid file paths**
+- **Unsupported configuration values**
+
+### Validation Errors
+
+```bash
+taskw generate
+```
+
+Example output with configuration errors:
+
+```
+❌ Configuration error: Invalid scan_dirs path "./nonexistent"
+❌ Configuration error: output_dir must be a valid directory
+```
+
+## Auto-Generated Configuration
+
+When you run `taskw init`, a default configuration file is created:
+
+```yaml
+version: "1.0"
+project:
+  module: "github.com/user/project-name"
+paths:
+  scan_dirs: ["."]
+  output_dir: "."
+generation:
+  routes:
+    enabled: true
+    output_file: "routes_gen.go"
+  dependencies:
+    enabled: true
+    output_file: "dependencies_gen.go"
+```
+
+## Configuration Best Practices
+
+### Use Relative Paths
+
+Prefer relative paths for better portability:
+
+```yaml
+paths:
+  scan_dirs: ["./internal", "./cmd"]  # ✅ Good
+  # scan_dirs: ["/absolute/path"]     # ❌ Avoid
+```
+
+### Organize by Feature
+
+For large projects, organize scan directories by feature:
+
+```yaml
+paths:
+  scan_dirs:
+    - "./internal/api"
+    - "./internal/auth"
+    - "./internal/users"
+```
+
+### Version Control
+
+Include `taskw.yaml` in version control but exclude generated files:
+
+```bash
+# .gitignore
+routes_gen.go
+dependencies_gen.go
+swagger.json
+```
+
+### Environment-Specific Configs
+
+For different environments, use separate configuration files:
+
+```bash
+# Development
+taskw --config taskw.dev.yaml generate
+
+# Production
+taskw --config taskw.prod.yaml generate
+```
+
+## Troubleshooting
+
+### Configuration Not Found
+
+If Taskw can't find your configuration:
+
+```bash
+# Check if file exists
+ls -la taskw.yaml
+
+# Use explicit path
+taskw --config ./path/to/taskw.yaml generate
+```
+
+### Invalid Configuration
+
+If you get configuration errors:
+
+```bash
+# Validate YAML syntax
+yamllint taskw.yaml
+
+# Check file permissions
+ls -la taskw.yaml
+```
+
+### Module Detection Issues
+
+If module detection fails:
+
+```bash
+# Check go.mod exists
+cat go.mod
+
+# Specify module explicitly in config
+project:
+  module: "github.com/user/project-name"
+```
