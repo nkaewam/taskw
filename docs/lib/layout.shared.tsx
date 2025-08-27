@@ -25,6 +25,6 @@ export function baseOptions(): BaseLayoutProps {
       ),
     },
     // see https://fumadocs.dev/docs/ui/navigation/links
-    links: [],
+    githubUrl: "https://github.com/nkaewam/taskw",
   };
 }
