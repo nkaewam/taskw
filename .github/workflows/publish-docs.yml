@@ -17,6 +17,8 @@ jobs:
         with:
           version: 9.15.5
       - name: Install dependencies
-        run: cd docs && pnpm install
+        working-directory: docs
+        run: pnpm install
       - name: Build & Deploy Worker
+        working-directory: docs
         run: pnpm run deploy
