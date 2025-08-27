@@ -1,0 +1,180 @@
+name: Auto Tag with Semantic Versioning
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get previous tag
+        id: previoustag
+        uses: WyriHaximus/github-action-get-previous-tag@v1
+        with:
+          fallback: v0.0.0
+
+      - name: Determine version increment
+        id: version_increment
+        run: |
+          # Get commit messages since last tag
+          COMMITS=$(git log ${{ steps.previoustag.outputs.tag }}..HEAD --pretty=format:"%s" --no-merges)
+          
+          echo "Commit messages since last tag:"
+          echo "$COMMITS"
+          
+          # Initialize increment type
+          INCREMENT="patch"
+          
+          # Check for breaking changes (major version)
+          if echo "$COMMITS" | grep -qiE "(BREAKING CHANGE|!:)"; then
+            INCREMENT="major"
+            echo "Found breaking changes - major increment"
+          # Check for features (minor version)
+          elif echo "$COMMITS" | grep -qiE "^(feat|feature)(\(.+\))?:"; then
+            INCREMENT="minor"
+            echo "Found features - minor increment"
+          # Check for fixes (patch version)
+          elif echo "$COMMITS" | grep -qiE "^(fix|bugfix)(\(.+\))?:"; then
+            INCREMENT="patch"
+            echo "Found fixes - patch increment"
+          # Check for other conventional commit types that should trigger patch
+          elif echo "$COMMITS" | grep -qiE "^(docs|style|refactor|perf|test|chore)(\(.+\))?:"; then
+            INCREMENT="patch"
+            echo "Found other changes - patch increment"
+          else
+            # If no conventional commits found, check if there are any changes at all
+            if [ -z "$COMMITS" ]; then
+              echo "No commits found since last tag - skipping"
+              INCREMENT="skip"
+            else
+              INCREMENT="patch"
+              echo "Found non-conventional commits - defaulting to patch increment"
+            fi
+          fi
+          
+          echo "increment=$INCREMENT" >> $GITHUB_OUTPUT
+
+      - name: Calculate next version
+        id: next_version
+        if: steps.version_increment.outputs.increment != 'skip'
+        run: |
+          CURRENT_TAG="${{ steps.previoustag.outputs.tag }}"
+          INCREMENT="${{ steps.version_increment.outputs.increment }}"
+          
+          # Remove 'v' prefix if present
+          VERSION=${CURRENT_TAG#v}
+          
+          # Split version into parts
+          IFS='.' read -r -a VERSION_PARTS <<< "$VERSION"
+          MAJOR=${VERSION_PARTS[0]:-0}
+          MINOR=${VERSION_PARTS[1]:-0}  
+          PATCH=${VERSION_PARTS[2]:-0}
+          
+          # Increment based on type
+          case $INCREMENT in
+            "major")
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            "minor")
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            "patch")
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "Next version: $NEW_VERSION (increment: $INCREMENT)"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "increment_type=$INCREMENT" >> $GITHUB_OUTPUT
+
+      - name: Create and push tag
+        if: steps.version_increment.outputs.increment != 'skip'
+        run: |
+          NEW_TAG="${{ steps.next_version.outputs.version }}"
+          INCREMENT_TYPE="${{ steps.next_version.outputs.increment_type }}"
+          
+          echo "Creating tag: $NEW_TAG"
+          
+          # Create annotated tag with commit info
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Create tag message based on increment type
+          case $INCREMENT_TYPE in
+            "major")
+              TAG_MESSAGE="🚀 Major release $NEW_TAG with breaking changes"
+              ;;
+            "minor")
+              TAG_MESSAGE="✨ Minor release $NEW_TAG with new features"
+              ;;
+            "patch")
+              TAG_MESSAGE="🐛 Patch release $NEW_TAG with fixes and improvements"
+              ;;
+          esac
+          
+          git tag -a "$NEW_TAG" -m "$TAG_MESSAGE"
+          git push origin "$NEW_TAG"
+          
+          echo "Successfully created and pushed tag: $NEW_TAG"
+
+      - name: Create GitHub Release
+        if: steps.version_increment.outputs.increment != 'skip'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.next_version.outputs.version }}
+          release_name: Release ${{ steps.next_version.outputs.version }}
+          body: |
+            ## Changes in ${{ steps.next_version.outputs.version }}
+            
+            This is a ${{ steps.next_version.outputs.increment_type }} release.
+            
+            ### Commits included:
+            ```
+            $(git log ${{ steps.previoustag.outputs.tag }}..HEAD --pretty=format:"- %s" --no-merges)
+            ```
+            
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.previoustag.outputs.tag }}...${{ steps.next_version.outputs.version }}
+          draft: false
+          prerelease: false
+
+      - name: Summary
+        if: steps.version_increment.outputs.increment != 'skip'
+        run: |
+          echo "## 🏷️ Auto-Tagging Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Previous tag**: ${{ steps.previoustag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **New tag**: ${{ steps.next_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Increment type**: ${{ steps.next_version.outputs.increment_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release created**: ✅" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Commit Message Guidelines" >> $GITHUB_STEP_SUMMARY
+          echo "- \`feat:\` or \`feature:\` → **minor** version bump" >> $GITHUB_STEP_SUMMARY
+          echo "- \`fix:\` or \`bugfix:\` → **patch** version bump" >> $GITHUB_STEP_SUMMARY
+          echo "- \`BREAKING CHANGE:\` or commits with \`!\` → **major** version bump" >> $GITHUB_STEP_SUMMARY
+          echo "- Other conventional commits → **patch** version bump" >> $GITHUB_STEP_SUMMARY
+
+      - name: Skip Summary
+        if: steps.version_increment.outputs.increment == 'skip'
+        run: |
+          echo "## ⏭️ Auto-Tagging Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "No new commits found since last tag: ${{ steps.previoustag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
