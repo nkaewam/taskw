@@ -30,22 +30,29 @@ func (s *ASTScanner) ScanFile(filePath string) (*ScanResult, error) {
 	}
 
 	result := &ScanResult{
-		Handlers:  []HandlerFunction{},
-		Routes:    []RouteMapping{},
-		Providers: []ProviderFunction{},
-		Errors:    []ScanError{},
+		Handlers:        []HandlerFunction{},
+		Routes:          []RouteMapping{},
+		Providers:       []ProviderFunction{},
+		Interfaces:      []HandlerInterface{},
+		Implementations: []HandlerImplementation{},
+		Errors:          []ScanError{},
 	}
 
 	packageName := node.Name.Name
 
-	// Walk the AST to find functions
+	// Walk the AST to find functions and type declarations
 	ast.Inspect(node, func(n ast.Node) bool {
 		switch x := n.(type) {
 		case *ast.FuncDecl:
 			s.processFuncDecl(x, packageName, filePath, result)
+		case *ast.TypeSpec:
+			s.processTypeSpec(x, packageName, filePath, result)
 		}
 		return true
 	})
+
+	// After scanning all types and functions, associate interfaces with implementations
+	s.associateInterfacesWithImplementations(result)
 
 	return result, nil
 }
@@ -75,10 +82,15 @@ func (s *ASTScanner) extractHandler(fn *ast.FuncDecl, pkg, filePath string) *Han
 		return nil
 	}
 
-	// Check receiver type: should be *SomeHandler
+	// Check receiver type: should be *SomeHandler or *SomeImpl (for interface pattern)
 	recv := fn.Recv.List[0]
 	handlerName := s.getReceiverTypeName(recv)
-	if handlerName == "" || !strings.HasSuffix(handlerName, "Handler") {
+	if handlerName == "" {
+		return nil
+	}
+
+	// Accept both traditional pattern (*Handler) and interface pattern (*Impl)
+	if !strings.HasSuffix(handlerName, "Handler") && !s.isHandlerImplementation(handlerName) {
 		return nil
 	}
 
@@ -199,6 +211,13 @@ func (s *ASTScanner) extractProvider(fn *ast.FuncDecl, pkg, filePath string) *Pr
 		return nil
 	}
 
+	// For interface-based patterns, if the return type is just "Handler" (interface),
+	// we should qualify it with the package name for clarity in generated code
+	if returnType == "Handler" && s.hasErrorReturnType(fn) {
+		// This looks like it returns (Handler, error) - an interface pattern
+		returnType = pkg + "." + returnType
+	}
+
 	// Extract parameters
 	var parameters []string
 	if fn.Type.Params != nil {
@@ -217,6 +236,169 @@ func (s *ASTScanner) extractProvider(fn *ast.FuncDecl, pkg, filePath string) *Pr
 		Parameters:   parameters,
 		FilePath:     filePath,
 	}
+}
+
+// hasErrorReturnType checks if a function returns error as the second return type
+func (s *ASTScanner) hasErrorReturnType(fn *ast.FuncDecl) bool {
+	if fn.Type.Results == nil || len(fn.Type.Results.List) != 2 {
+		return false
+	}
+
+	// Check if second return type is error
+	secondResult := fn.Type.Results.List[1]
+	if ident, ok := secondResult.Type.(*ast.Ident); ok {
+		return ident.Name == "error"
+	}
+	return false
+}
+
+// processTypeSpec analyzes type declarations for handler interfaces and implementations
+func (s *ASTScanner) processTypeSpec(ts *ast.TypeSpec, pkg, filePath string, result *ScanResult) {
+	typeName := ts.Name.Name
+
+	switch t := ts.Type.(type) {
+	case *ast.InterfaceType:
+		// Check if this is a handler interface
+		if s.isHandlerInterface(typeName, t) {
+			methods := s.extractInterfaceMethods(t)
+			result.Interfaces = append(result.Interfaces, HandlerInterface{
+				InterfaceName: typeName,
+				Package:       pkg,
+				Methods:       methods,
+				FilePath:      filePath,
+			})
+		}
+	case *ast.StructType:
+		// Check if this could be a handler implementation
+		if s.isHandlerImplementation(typeName) {
+			result.Implementations = append(result.Implementations, HandlerImplementation{
+				StructName:    typeName,
+				Package:       pkg,
+				InterfaceName: "",         // Will be filled in during association
+				Methods:       []string{}, // Will be filled when we find the methods
+				FilePath:      filePath,
+			})
+		}
+	}
+}
+
+// isHandlerInterface checks if an interface is likely a handler interface
+func (s *ASTScanner) isHandlerInterface(name string, iface *ast.InterfaceType) bool {
+	// Must be named "Handler"
+	if name != "Handler" {
+		return false
+	}
+
+	// Must have at least one method that looks like a handler
+	for _, method := range iface.Methods.List {
+		if funcType, ok := method.Type.(*ast.FuncType); ok {
+			if s.hasFiberCtxParamInFunc(funcType) && s.returnsErrorInFunc(funcType) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// isHandlerImplementation checks if a struct is likely a handler implementation
+func (s *ASTScanner) isHandlerImplementation(name string) bool {
+	// Common patterns for implementation structs
+	return name == "HandlerImpl" ||
+		strings.HasSuffix(name, "Implementation") ||
+		strings.HasSuffix(name, "Impl") ||
+		(strings.HasSuffix(name, "Handler") && strings.Contains(name, "Impl"))
+}
+
+// extractInterfaceMethods extracts method names from an interface
+func (s *ASTScanner) extractInterfaceMethods(iface *ast.InterfaceType) []string {
+	var methods []string
+	for _, method := range iface.Methods.List {
+		if len(method.Names) > 0 {
+			methods = append(methods, method.Names[0].Name)
+		}
+	}
+	return methods
+}
+
+// hasFiberCtxParamInFunc checks if a function type has fiber.Ctx parameter
+func (s *ASTScanner) hasFiberCtxParamInFunc(fn *ast.FuncType) bool {
+	if fn.Params == nil || len(fn.Params.List) != 1 {
+		return false
+	}
+
+	param := fn.Params.List[0]
+	switch t := param.Type.(type) {
+	case *ast.StarExpr:
+		if sel, ok := t.X.(*ast.SelectorExpr); ok {
+			if ident, ok := sel.X.(*ast.Ident); ok {
+				return (ident.Name == "fiber" && sel.Sel.Name == "Ctx") ||
+					(ident.Name == "gin" && sel.Sel.Name == "Context")
+			}
+		}
+	}
+	return false
+}
+
+// returnsErrorInFunc checks if a function type returns error
+func (s *ASTScanner) returnsErrorInFunc(fn *ast.FuncType) bool {
+	if fn.Results == nil || len(fn.Results.List) == 0 {
+		return false
+	}
+
+	// Check last return type is error
+	lastResult := fn.Results.List[len(fn.Results.List)-1]
+	if ident, ok := lastResult.Type.(*ast.Ident); ok {
+		return ident.Name == "error"
+	}
+	return false
+}
+
+// associateInterfacesWithImplementations links interfaces with their implementations
+func (s *ASTScanner) associateInterfacesWithImplementations(result *ScanResult) {
+	// For each implementation, try to find its corresponding interface
+	for i := range result.Implementations {
+		impl := &result.Implementations[i]
+
+		// Look for an interface named "Handler" in the same package
+		for _, iface := range result.Interfaces {
+			if iface.Package == impl.Package && iface.InterfaceName == "Handler" {
+				impl.InterfaceName = iface.InterfaceName
+				break
+			}
+		}
+	}
+
+	// Now scan handlers again and create interface-based handlers
+	s.createInterfaceBasedHandlers(result)
+}
+
+// createInterfaceBasedHandlers creates HandlerFunction entries for interface-based patterns
+func (s *ASTScanner) createInterfaceBasedHandlers(result *ScanResult) {
+	// Find handlers that are methods on implementation structs
+	var newHandlers []HandlerFunction
+
+	for _, handler := range result.Handlers {
+		// Check if this handler is on an implementation struct
+		for _, impl := range result.Implementations {
+			if impl.Package == handler.Package && handler.HandlerName == impl.StructName {
+				// Create a new interface-based handler
+				newHandler := HandlerFunction{
+					FunctionName:     handler.FunctionName,
+					Package:          handler.Package,
+					HandlerName:      impl.InterfaceName, // Use interface name
+					ImplementerName:  impl.StructName,    // Store implementer name
+					ReturnType:       handler.ReturnType,
+					FilePath:         handler.FilePath,
+					IsInterfaceBased: true,
+				}
+				newHandlers = append(newHandlers, newHandler)
+			}
+		}
+	}
+
+	// Add the interface-based handlers
+	result.Handlers = append(result.Handlers, newHandlers...)
 }
 
 // Helper methods for AST analysis
