@@ -24,10 +24,14 @@ jobs:
         with:
           node-version: 22
           cache: "pnpm"
+          cache-dependency-path: 'docs'
+
       - name: Install dependencies
         run: pnpm install
+
       - name: Build Project
         run: pnpm build:open-next
+        
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         with:
