@@ -12,11 +12,9 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-        with:
-          path: docs
       - name: Set up pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 9.15.5
       - name: Build & Deploy Worker
-        run: pnpm run deploy
+        run: cd docs && pnpm run deploy
