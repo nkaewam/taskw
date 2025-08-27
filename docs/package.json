@@ -1,0 +1,32 @@
+{
+  "name": "docs",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev --turbo",
+    "start": "next start",
+    "postinstall": "fumadocs-mdx"
+  },
+  "dependencies": {
+    "next": "15.5.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "fumadocs-ui": "15.7.2",
+    "fumadocs-core": "15.7.2",
+    "fumadocs-mdx": "11.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.3.0",
+    "@types/react": "^19.1.11",
+    "@types/react-dom": "^19.1.7",
+    "typescript": "^5.9.2",
+    "@types/mdx": "^2.0.13",
+    "@tailwindcss/postcss": "^4.1.12",
+    "tailwindcss": "^4.1.12",
+    "postcss": "^8.5.6",
+    "eslint": "^8",
+    "eslint-config-next": "15.5.0"
+  },
+  "packageManager": "pnpm@9.15.5+sha512.845196026aab1cc3f098a0474b64dfbab2afe7a1b4e91dd86895d8e4aa32a7a6d03049e2d0ad770bbe4de023a7122fb68c1a1d6e0d033c7076085f9d5d4800d4"
+}
