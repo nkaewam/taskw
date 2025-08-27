@@ -6,7 +6,9 @@ const withMDX = createMDX();
 const config = {
   reactStrictMode: true,
   typedRoutes: true,
-  output: "export",
 };
 
 export default withMDX(config);
+
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+initOpenNextCloudflareForDev();
