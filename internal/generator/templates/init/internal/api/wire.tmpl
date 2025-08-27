@@ -9,12 +9,14 @@ import (
 // ProviderSet will be augmented by taskw generated dependencies
 // This only contains infrastructure providers - taskw will add the rest
 var ProviderSet = wire.NewSet(
+	// Manual providers (If any)
+
 	// Generated providers added by taskw
 	GeneratedProviderSet,
 )
 
-// InitializeServer initializes the complete server with all dependencies
-func InitializeServer() (*Server, error) {
+// InitializeRouter initializes the complete router with all dependencies
+func InitializeRouter() (*Router, error) {
 	wire.Build(ProviderSet)
-	return &Server{}, nil
+	return &Router{}, nil
 }

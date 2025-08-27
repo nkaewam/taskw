@@ -8,7 +8,6 @@ package api
 
 import (
 	"github.com/example/ecommerce-api/internal/health"
-	"github.com/example/ecommerce-api/internal/logger"
 	"github.com/example/ecommerce-api/internal/order"
 	"github.com/example/ecommerce-api/internal/product"
 	"github.com/example/ecommerce-api/internal/user"
@@ -17,28 +16,24 @@ import (
 
 // Injectors from wire.go:
 
-// InitializeServer initializes the complete server with all dependencies
-func InitializeServer() (*Server, error) {
-	zapLogger, err := logger.ProvideLogger()
-	if err != nil {
-		return nil, err
-	}
+func InitializeRouter() (*Router, error) {
+	app := ProvideFiberApp()
 	repository := health.ProvideRepository()
 	service := health.ProvideService(repository)
 	handler := health.ProvideHandler(service)
-	userRepository := user.ProvideRepository()
-	userService := user.ProvideService(userRepository)
-	userHandler := user.ProvideHandler(userService)
+	orderRepository := order.ProvideRepository()
 	productRepository := product.ProvideRepository()
 	productService := product.ProvideService(productRepository)
-	productHandler := product.ProvideHandler(productService)
-	orderRepository := order.ProvideRepository()
 	orderProductService := ProvideProductServiceAdapter(productService)
+	userRepository := user.ProvideRepository()
+	userService := user.ProvideService(userRepository)
 	orderUserService := ProvideUserServiceAdapter(userService)
 	orderService := order.ProvideService(orderRepository, orderProductService, orderUserService)
 	orderHandler := order.ProvideHandler(orderService)
-	server := ProvideServer(zapLogger, handler, userHandler, productHandler, orderHandler)
-	return server, nil
+	productHandler := product.ProvideHandler(productService)
+	userHandler := user.ProvideHandler(userService)
+	router := ProvideRouter(app, handler, orderHandler, productHandler, userHandler)
+	return router, nil
 }
 
 // wire.go:

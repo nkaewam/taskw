@@ -118,7 +118,6 @@ func TestProjectInitialization(t *testing.T) {
 			"github.com/gofiber/fiber/v2",
 			"github.com/google/wire",
 			"github.com/gofiber/contrib/swagger",
-			"go.uber.org/zap",
 		}
 
 		for _, dep := range expectedDeps {

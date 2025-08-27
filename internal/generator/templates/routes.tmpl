@@ -8,11 +8,27 @@ import (
 {{- end}}
 )
 
-// RegisterRoutes registers all HTTP routes with the Fiber app
-func (s *Server) RegisterRoutes(app *fiber.App) {
-	{{- range $routes := .Routes}}
-	app.{{call $.GetRouterMethod .HTTPMethod}}("{{.Path}}", {{call $.GetHandlerRef .Package .HandlerRef}})
+// Router automatically registers routes from handler structs
+type Router struct {
+	app *fiber.App
+	{{- range .Handlers}}
+	{{.FieldName}} {{.TypeName}}
 	{{- end}}
+}
 
-	s.logger.Info("All routes registered successfully")
+// ProvideRouter creates a new auto router
+func ProvideRouter(app *fiber.App{{range .Handlers}}, {{.ParamName}} {{.TypeName}}{{end}}) *Router {
+	return &Router{
+		app: app,
+		{{- range .Handlers}}
+		{{.FieldName}}: {{.ParamName}},
+		{{- end}}
+	}
+}
+
+// RegisterHandlers registers all HTTP routes with the Fiber app
+func (ar *Router) RegisterHandlers() {
+	{{- range $routes := .Routes}}
+	ar.app.{{call $.GetRouterMethod .HTTPMethod}}("{{.Path}}", {{call $.GetHandlerRef .Package .HandlerRef}})
+	{{- end}}
 }

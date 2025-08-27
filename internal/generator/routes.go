@@ -29,6 +29,14 @@ func NewRouteGenerator(cfg *config.Config) *RouteGenerator {
 	}
 }
 
+// HandlerInfo represents information about a handler for dependency injection
+type HandlerInfo struct {
+	FieldName string // e.g., "userHandler"
+	ParamName string // e.g., "userHandler"
+	TypeName  string // e.g., "user.Handler"
+	Package   string // e.g., "user"
+}
+
 // GenerateRoutes generates the routes_gen.go file
 func (g *RouteGenerator) GenerateRoutes(handlers []scanner.HandlerFunction, routes []scanner.RouteMapping) error {
 	if !g.config.Generation.Routes.Enabled {
@@ -38,14 +46,17 @@ func (g *RouteGenerator) GenerateRoutes(handlers []scanner.HandlerFunction, rout
 	// Organize routes by package for better structure
 	routesByPackage := g.organizeRoutesByPackage(routes)
 
+	// Extract unique handler information for dependency injection
+	handlerInfo := g.extractHandlerInfo(handlers, routes)
+
 	// Generate imports needed
-	imports := g.generateImports(handlers, routes)
+	imports := g.generateImports(handlers, routes, handlerInfo)
 
 	// Get output path
 	outputPath := filepath.Join(g.config.Paths.OutputDir, g.config.Generation.Routes.OutputFile)
 
 	// Generate the file content
-	content, err := g.generateRouteFileContent(routesByPackage, imports)
+	content, err := g.generateRouteFileContent(routesByPackage, imports, handlerInfo)
 	if err != nil {
 		return fmt.Errorf("error generating route file content: %w", err)
 	}
@@ -70,20 +81,34 @@ func (g *RouteGenerator) organizeRoutesByPackage(routes []scanner.RouteMapping) 
 }
 
 // generateImports creates the import statements needed for the generated file
-func (g *RouteGenerator) generateImports(handlers []scanner.HandlerFunction, routes []scanner.RouteMapping) []string {
+func (g *RouteGenerator) generateImports(handlers []scanner.HandlerFunction, routes []scanner.RouteMapping, handlerInfo []HandlerInfo) []string {
 	imports := []string{
 		`"github.com/gofiber/fiber/v2"`,
 	}
 
-	// For route generation, we only need fiber import
-	// Handler references like s.userHandler.GetUsers don't require importing the handler packages
-	// since they're just struct field references
+	// Add imports for handler packages
+	packageSet := make(map[string]bool)
+	for _, handler := range handlerInfo {
+		// Derive the import path from the handler package
+		importPath := g.deriveHandlerImportPath(handler.Package)
+		if importPath != "" {
+			packageSet[fmt.Sprintf(`"%s"`, importPath)] = true
+		}
+	}
+
+	// Convert to sorted slice
+	var packageImports []string
+	for pkg := range packageSet {
+		packageImports = append(packageImports, pkg)
+	}
+	sort.Strings(packageImports)
+	imports = append(imports, packageImports...)
 
 	return imports
 }
 
 // generateRouteFileContent creates the actual file content
-func (g *RouteGenerator) generateRouteFileContent(routesByPackage map[string][]scanner.RouteMapping, imports []string) (string, error) {
+func (g *RouteGenerator) generateRouteFileContent(routesByPackage map[string][]scanner.RouteMapping, imports []string, handlerInfo []HandlerInfo) (string, error) {
 	// Flatten routes from all packages into a single slice
 	// Process packages in deterministic order
 	var packageNames []string
@@ -120,12 +145,14 @@ func (g *RouteGenerator) generateRouteFileContent(routesByPackage map[string][]s
 		Package         string
 		Imports         []string
 		Routes          []scanner.RouteMapping
+		Handlers        []HandlerInfo
 		GetRouterMethod func(method string) string
 		GetHandlerRef   func(pkg, handlerRef string) string
 	}{
 		Package:         "api",
 		Imports:         imports,
 		Routes:          allRoutes,
+		Handlers:        handlerInfo,
 		GetRouterMethod: g.getRouterMethod,
 		GetHandlerRef:   g.getHandlerRef,
 	}
@@ -225,12 +252,12 @@ func (g *RouteGenerator) getRouterMethod(method string) string {
 // getHandlerRef generates the handler reference for route registration
 func (g *RouteGenerator) getHandlerRef(pkg, handlerRef string) string {
 	// handlerRef comes from scanner as "userHandler.GetUsers"
-	// We need to convert it to "s.userHandler.GetUsers"
+	// We need to convert it to "ar.userHandler.GetUsers" for Router pattern
 	parts := strings.Split(handlerRef, ".")
 	if len(parts) == 2 {
 		handlerName := parts[0] // e.g., "userHandler"
 		methodName := parts[1]  // e.g., "GetUsers"
-		return fmt.Sprintf("s.%s.%s", handlerName, methodName)
+		return fmt.Sprintf("ar.%s.%s", handlerName, methodName)
 	}
 	return handlerRef
 }
@@ -291,6 +318,63 @@ func (g *RouteGenerator) countPathParameters(path string) int {
 		}
 	}
 	return count
+}
+
+// extractHandlerInfo extracts unique handler information from routes for dependency injection
+func (g *RouteGenerator) extractHandlerInfo(handlers []scanner.HandlerFunction, routes []scanner.RouteMapping) []HandlerInfo {
+	handlerMap := make(map[string]HandlerInfo)
+
+	// Extract handler info from routes
+	for _, route := range routes {
+		// route.HandlerRef is like "userHandler.GetUsers"
+		parts := strings.Split(route.HandlerRef, ".")
+		if len(parts) == 2 {
+			handlerName := parts[0] // e.g., "userHandler"
+			pkg := route.Package    // e.g., "user"
+
+			// Create handler info if not already present
+			if _, exists := handlerMap[handlerName]; !exists {
+				handlerMap[handlerName] = HandlerInfo{
+					FieldName: handlerName, // e.g., "userHandler"
+					ParamName: handlerName, // e.g., "userHandler"
+					TypeName:  g.getHandlerTypeName(pkg),
+					Package:   pkg,
+				}
+			}
+		}
+	}
+
+	// Convert map to slice for consistent ordering
+	var handlerInfo []HandlerInfo
+	for _, handler := range handlerMap {
+		handlerInfo = append(handlerInfo, handler)
+	}
+
+	// Sort for consistent output
+	sort.Slice(handlerInfo, func(i, j int) bool {
+		return handlerInfo[i].FieldName < handlerInfo[j].FieldName
+	})
+
+	return handlerInfo
+}
+
+// getHandlerTypeName generates the handler type name for dependency injection
+func (g *RouteGenerator) getHandlerTypeName(pkg string) string {
+	// For interface-based handlers, use pkg.Handler (e.g., user.Handler)
+	// For concrete handlers, use *pkg.Handler (e.g., *user.Handler)
+	// Default to pointer pattern for concrete struct handlers
+	return fmt.Sprintf("*%s.Handler", pkg)
+}
+
+// deriveHandlerImportPath derives the import path for a handler package
+func (g *RouteGenerator) deriveHandlerImportPath(pkg string) string {
+	// Use the project module from config and construct the path
+	// Assuming handlers are in internal/<pkg> relative to project root
+	if g.config != nil && g.config.Project.Module != "" {
+		return fmt.Sprintf("%s/internal/%s", g.config.Project.Module, pkg)
+	}
+	// Fallback - this should be improved based on actual project structure
+	return fmt.Sprintf("internal/%s", pkg)
 }
 
 // writeGeneratedFile writes content to a file with proper Go formatting

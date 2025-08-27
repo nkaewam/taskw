@@ -3,31 +3,53 @@
 package api
 
 import (
+	"github.com/example/ecommerce-api/internal/health"
+	"github.com/example/ecommerce-api/internal/order"
+	"github.com/example/ecommerce-api/internal/product"
+	"github.com/example/ecommerce-api/internal/user"
 	"github.com/gofiber/fiber/v2"
 )
 
-// RegisterRoutes registers all HTTP routes with the Fiber app
-func (s *Server) RegisterRoutes(app *fiber.App) {
-	app.Get("/api/v1/products/:id/stock", s.productHandler.CheckStock)
-	app.Get("/api/v1/users/:user_id/orders", s.orderHandler.GetUserOrders)
-	app.Post("/api/v1/orders/:id/cancel", s.orderHandler.CancelOrder)
-	app.Put("/api/v1/orders/:id/status", s.orderHandler.UpdateOrderStatus)
-	app.Get("/api/v1/users/by-email", s.userHandler.GetUserByEmail)
-	app.Delete("/api/v1/products/:id", s.productHandler.DeleteProduct)
-	app.Delete("/api/v1/users/:id", s.userHandler.DeleteUser)
-	app.Get("/api/v1/orders/:id", s.orderHandler.GetOrder)
-	app.Get("/api/v1/products/:id", s.productHandler.GetProduct)
-	app.Get("/api/v1/users/:id", s.userHandler.GetUser)
-	app.Put("/api/v1/products/:id", s.productHandler.UpdateProduct)
-	app.Put("/api/v1/users/:id", s.userHandler.UpdateUser)
-	app.Get("/api/v1/categories", s.productHandler.GetCategories)
-	app.Get("/api/v1/orders", s.orderHandler.GetOrders)
-	app.Get("/api/v1/products", s.productHandler.GetProducts)
-	app.Get("/api/v1/users", s.userHandler.GetUsers)
-	app.Post("/api/v1/orders", s.orderHandler.CreateOrder)
-	app.Post("/api/v1/products", s.productHandler.CreateProduct)
-	app.Post("/api/v1/users", s.userHandler.CreateUser)
-	app.Get("/health", s.healthHandler.GetHealth)
+// Router automatically registers routes from handler structs
+type Router struct {
+	app            *fiber.App
+	healthHandler  *health.Handler
+	orderHandler   *order.Handler
+	productHandler *product.Handler
+	userHandler    *user.Handler
+}
 
-	s.logger.Info("All routes registered successfully")
+// ProvideRouter creates a new auto router
+func ProvideRouter(app *fiber.App, healthHandler *health.Handler, orderHandler *order.Handler, productHandler *product.Handler, userHandler *user.Handler) *Router {
+	return &Router{
+		app:            app,
+		healthHandler:  healthHandler,
+		orderHandler:   orderHandler,
+		productHandler: productHandler,
+		userHandler:    userHandler,
+	}
+}
+
+// RegisterHandlers registers all HTTP routes with the Fiber app
+func (ar *Router) RegisterHandlers() {
+	ar.app.Get("/api/v1/products/:id/stock", ar.productHandler.CheckStock)
+	ar.app.Get("/api/v1/users/:user_id/orders", ar.orderHandler.GetUserOrders)
+	ar.app.Post("/api/v1/orders/:id/cancel", ar.orderHandler.CancelOrder)
+	ar.app.Put("/api/v1/orders/:id/status", ar.orderHandler.UpdateOrderStatus)
+	ar.app.Get("/api/v1/users/by-email", ar.userHandler.GetUserByEmail)
+	ar.app.Delete("/api/v1/products/:id", ar.productHandler.DeleteProduct)
+	ar.app.Delete("/api/v1/users/:id", ar.userHandler.DeleteUser)
+	ar.app.Get("/api/v1/orders/:id", ar.orderHandler.GetOrder)
+	ar.app.Get("/api/v1/products/:id", ar.productHandler.GetProduct)
+	ar.app.Get("/api/v1/users/:id", ar.userHandler.GetUser)
+	ar.app.Put("/api/v1/products/:id", ar.productHandler.UpdateProduct)
+	ar.app.Put("/api/v1/users/:id", ar.userHandler.UpdateUser)
+	ar.app.Get("/api/v1/categories", ar.productHandler.GetCategories)
+	ar.app.Get("/api/v1/orders", ar.orderHandler.GetOrders)
+	ar.app.Get("/api/v1/products", ar.productHandler.GetProducts)
+	ar.app.Get("/api/v1/users", ar.userHandler.GetUsers)
+	ar.app.Post("/api/v1/orders", ar.orderHandler.CreateOrder)
+	ar.app.Post("/api/v1/products", ar.productHandler.CreateProduct)
+	ar.app.Post("/api/v1/users", ar.userHandler.CreateUser)
+	ar.app.Get("/health", ar.healthHandler.GetHealth)
 }

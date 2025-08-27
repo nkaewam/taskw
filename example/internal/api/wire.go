@@ -16,8 +16,7 @@ var ProviderSet = wire.NewSet(
 	GeneratedProviderSet,
 )
 
-// InitializeServer initializes the complete server with all dependencies
-func InitializeServer() (*Server, error) {
+func InitializeRouter() (*Router, error) {
 	wire.Build(ProviderSet)
-	return &Server{}, nil
+	return &Router{}, nil
 }

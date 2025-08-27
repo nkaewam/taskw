@@ -17,7 +17,7 @@ var GeneratedProviderSet = wire.NewSet(
 	// api module providers
 	ProvideFiberApp,
 	ProvideProductServiceAdapter,
-	ProvideServer,
+	ProvideRouter,
 	ProvideUserServiceAdapter,
 
 	// health module providers

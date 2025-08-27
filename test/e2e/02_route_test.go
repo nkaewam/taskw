@@ -63,7 +63,6 @@ func TestAddingNewRoute(t *testing.T) {
 import (
 	"fmt"
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 )
 
 // User represents a user in the system
@@ -75,14 +74,12 @@ type User struct {
 
 // Service handles user business logic
 type Service struct {
-	logger *zap.Logger
 	users  map[string]*User // Mock storage
 }
 
 // ProvideService creates a new user service
-func ProvideService(logger *zap.Logger) *Service {
+func ProvideService() *Service {
 	return &Service{
-		logger: logger,
 		users:  make(map[string]*User),
 	}
 }
@@ -96,7 +93,6 @@ func (s *Service) CreateUser(name, email string) (*User, error) {
 	}
 	
 	s.users[user.ID] = user
-	s.logger.Info("User created", zap.String("id", user.ID), zap.String("email", email))
 	return user, nil
 }
 
@@ -127,7 +123,6 @@ func (s *Service) UpdateUser(id, name, email string) (*User, error) {
 	
 	user.Name = name
 	user.Email = email
-	s.logger.Info("User updated", zap.String("id", id))
 	return user, nil
 }
 
@@ -138,7 +133,6 @@ func (s *Service) DeleteUser(id string) error {
 	}
 	
 	delete(s.users, id)
-	s.logger.Info("User deleted", zap.String("id", id))
 	return nil
 }
 `
@@ -229,59 +223,7 @@ type CreateUserRequest struct {
 		t.Logf("✅ Initial handler created with 2 routes")
 	})
 
-	t.Run("03_update_server_for_user_handler", func(t *testing.T) {
-		// Update server.go to include user handler
-		serverFile := filepath.Join(projectDir, "internal", "api", "server.go")
-		content, err := os.ReadFile(serverFile)
-		if err != nil {
-			t.Fatalf("Failed to read server.go: %v", err)
-		}
-
-		serverContent := string(content)
-
-		// Add user import - handle both minimal and health-handler imports
-		var updatedContent string
-		if strings.Contains(serverContent, "/internal/health") {
-			// Server already has health import (using tabs)
-			updatedContent = strings.Replace(serverContent,
-				"import (\n\t\"github.com/gofiber/fiber/v2\"\n\t\"go.uber.org/zap\"\n\n\t\""+module+"/internal/health\"\n)",
-				"import (\n\t\"github.com/gofiber/fiber/v2\"\n\t\"go.uber.org/zap\"\n\n\t\""+module+"/internal/health\"\n\t\""+module+"/internal/user\"\n)", 1)
-		} else {
-			// Minimal imports
-			updatedContent = strings.Replace(serverContent,
-				"import (\n\t\"github.com/gofiber/fiber/v2\"\n\t\"go.uber.org/zap\"",
-				"import (\n\t\""+module+"/internal/user\"\n\t\"github.com/gofiber/fiber/v2\"\n\t\"go.uber.org/zap\"", 1)
-		}
-
-		// Handle both minimal and health-handler server structures
-		if strings.Contains(updatedContent, "healthHandler *health.Handler") {
-			// Server already has healthHandler (using tabs)
-			updatedContent = strings.Replace(updatedContent,
-				"type Server struct {\n\tlogger *zap.Logger\n\thealthHandler *health.Handler\n}",
-				"type Server struct {\n\tlogger *zap.Logger\n\thealthHandler *health.Handler\n\tuserHandler *user.Handler\n}", 1)
-		} else {
-			// Minimal server structure
-			updatedContent = strings.Replace(updatedContent,
-				"type Server struct {\n\tlogger *zap.Logger\n}",
-				"type Server struct {\n\tlogger *zap.Logger\n\tuserHandler *user.Handler\n}", 1)
-		}
-
-		// Handle both minimal and health-handler ProvideServer structures
-		if strings.Contains(updatedContent, "healthHandler *health.Handler") {
-			// Server already has healthHandler (using tabs)
-			updatedContent = strings.Replace(updatedContent,
-				"func ProvideServer(\n\tlogger *zap.Logger,\n\thealthHandler *health.Handler,\n) *Server {\n\treturn &Server{\n\t\tlogger: logger,\n\t\thealthHandler: healthHandler,\n\t}\n}",
-				"func ProvideServer(\n\tlogger *zap.Logger,\n\thealthHandler *health.Handler,\n\tuserHandler *user.Handler,\n) *Server {\n\treturn &Server{\n\t\tlogger: logger,\n\t\thealthHandler: healthHandler,\n\t\tuserHandler: userHandler,\n\t}\n}", 1)
-		} else {
-			// Minimal ProvideServer structure
-			updatedContent = strings.Replace(updatedContent,
-				"func ProvideServer(\n\tlogger *zap.Logger,\n) *Server {\n\treturn &Server{\n\t\tlogger: logger,\n\t}\n}",
-				"func ProvideServer(\n\tlogger *zap.Logger,\n\tuserHandler *user.Handler,\n) *Server {\n\treturn &Server{\n\t\tlogger: logger,\n\t\tuserHandler: userHandler,\n\t}\n}", 1)
-		}
-
-		if err := os.WriteFile(serverFile, []byte(updatedContent), 0644); err != nil {
-			t.Fatalf("Failed to update server.go: %v", err)
-		}
+	t.Run("03_update_router_generation", func(t *testing.T) {
 
 		// Generate dependencies to include user service
 		cmd := exec.Command(taskwBin, "generate", "dependencies")
@@ -290,15 +232,7 @@ type CreateUserRequest struct {
 			t.Fatalf("Failed to generate dependencies: %v\nOutput: %s", err, string(output))
 		}
 
-		// Force Wire regeneration after updating ProvideServer signature
-		wireCmd := exec.Command("go", "generate", "./internal/api")
-		_, err = wireCmd.CombinedOutput()
-		if err != nil {
-			// Wire regeneration may fail due to missing dependencies, but that's okay
-			// The important part is that it updates wire_gen.go with the new signature
-		}
-
-		t.Logf("✅ Server updated to include user handler")
+		t.Logf("✅ Dependencies generated to include user handler")
 	})
 
 	t.Run("04_generate_initial_routes", func(t *testing.T) {
@@ -320,10 +254,10 @@ type CreateUserRequest struct {
 
 		// Check for initial routes
 		expectedRoutes := []string{
-			"Post(\"/api/v1/users\"",
-			"Get(\"/api/v1/users/:id\"",
-			"s.userHandler.CreateUser",
-			"s.userHandler.GetUser",
+			"ar.app.Post(\"/api/v1/users\"",
+			"ar.app.Get(\"/api/v1/users/:id\"",
+			"ar.userHandler.CreateUser",
+			"ar.userHandler.GetUser",
 		}
 
 		for _, route := range expectedRoutes {
@@ -335,6 +269,15 @@ type CreateUserRequest struct {
 		}
 
 		t.Logf("✅ Initial routes generated successfully")
+
+		// Now regenerate wire after routes are updated
+		wireCmd := exec.Command("go", "generate", "./internal/api")
+		_, err = wireCmd.CombinedOutput()
+		if err != nil {
+			// Wire regeneration may fail due to missing dependencies, but that's okay
+			// The important part is that it updates wire_gen.go with the new signature
+		}
+		t.Logf("✅ Wire regenerated with updated routes")
 	})
 
 	t.Run("05_add_new_routes_to_handler", func(t *testing.T) {
@@ -525,13 +468,13 @@ type UpdateUserRequest struct {
 		// Check for all route registrations
 		expectedRegistrations := []string{
 			// Original routes
-			"Post(\"/api/v1/users\", s.userHandler.CreateUser)",
-			"Get(\"/api/v1/users/:id\", s.userHandler.GetUser)",
+			"ar.app.Post(\"/api/v1/users\", ar.userHandler.CreateUser)",
+			"ar.app.Get(\"/api/v1/users/:id\", ar.userHandler.GetUser)",
 			// New routes
-			"Get(\"/api/v1/users\", s.userHandler.ListUsers)",
-			"Put(\"/api/v1/users/:id\", s.userHandler.UpdateUser)",
-			"Delete(\"/api/v1/users/:id\", s.userHandler.DeleteUser)",
-			"Get(\"/api/v1/users/search\", s.userHandler.SearchUsers)",
+			"ar.app.Get(\"/api/v1/users\", ar.userHandler.ListUsers)",
+			"ar.app.Put(\"/api/v1/users/:id\", ar.userHandler.UpdateUser)",
+			"ar.app.Delete(\"/api/v1/users/:id\", ar.userHandler.DeleteUser)",
+			"ar.app.Get(\"/api/v1/users/search\", ar.userHandler.SearchUsers)",
 		}
 
 		foundRegistrations := 0
@@ -549,6 +492,14 @@ type UpdateUserRequest struct {
 		}
 
 		t.Logf("✅ All %d route registrations generated successfully", foundRegistrations)
+
+		// Regenerate wire after adding new routes
+		wireCmd := exec.Command("go", "generate", "./internal/api")
+		_, err = wireCmd.CombinedOutput()
+		if err != nil {
+			// Wire regeneration may fail due to missing dependencies, but that's okay
+		}
+		t.Logf("✅ Wire regenerated after adding new routes")
 	})
 
 	t.Run("08_verify_route_ordering", func(t *testing.T) {
@@ -587,9 +538,9 @@ type UpdateUserRequest struct {
 			route string
 			count int
 		}{
-			{"Get(\"/api/v1/users\"", 0},
-			{"Get(\"/api/v1/users/:id\"", 0},
-			{"Post(\"/api/v1/users\"", 0},
+			{"ar.app.Get(\"/api/v1/users\"", 0},
+			{"ar.app.Get(\"/api/v1/users/:id\"", 0},
+			{"ar.app.Post(\"/api/v1/users\"", 0},
 		}
 
 		for i, conflict := range conflicts {
