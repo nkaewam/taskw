@@ -20,9 +20,8 @@ When building Go APIs, you typically spend time writing:
 
 1. **Handler functions** with route annotations (`@Router /api/users [get]`)
 2. **Provider functions** for dependency injection (`func ProvideUserHandler()`)
-3. **Manual route registration** (wiring routes to handlers)
-4. **Manual dependency wiring** (connecting all providers with Wire)
-5. **Inconsistent code structure** (no standard pattern)
+3. **Manual route registration**
+4. **Manual dependency wiring**
 
 The last two steps are pure boilerplate that gets repetitive and error-prone as your API grows.
 
