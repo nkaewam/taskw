@@ -17,9 +17,4 @@ jobs:
         with:
           version: 9.15.5
       - name: Build & Deploy Worker
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: docs
-          command: pnpm run deploy
+        run: cd docs && pnpm deploy
