@@ -18,7 +18,7 @@ type Scanner struct {
 func NewScanner(cfg *config.Config) *Scanner {
 	return &Scanner{
 		config:     cfg,
-		astScanner: NewASTScanner(),
+		astScanner: NewASTScanner(cfg.Paths.ScanDirs),
 		fileFilter: NewFileFilter(),
 	}
 }
