@@ -4,6 +4,7 @@ package scanner
 type HandlerFunction struct {
 	FunctionName     string // e.g., "GetUser"
 	Package          string // e.g., "user"
+	FullPackagePath  string // e.g., "domain/user" (complete package path from file system)
 	HandlerName      string // e.g., "UserHandler" (interface name if using interface pattern)
 	ImplementerName  string // e.g., "HandlerImpl" (only for interface pattern)
 	ReturnType       string // Always "error" for Fiber handlers
@@ -13,11 +14,12 @@ type HandlerFunction struct {
 
 // RouteMapping represents a @Router annotation mapping
 type RouteMapping struct {
-	MethodName string // e.g., "GetUser"
-	Path       string // e.g., "/users/:id"
-	HTTPMethod string // e.g., "GET", "POST", "PUT", "DELETE"
-	HandlerRef string // e.g., "userHandler.GetUser"
-	Package    string // Package name for import resolution
+	MethodName      string // e.g., "GetUser"
+	Path            string // e.g., "/users/:id"
+	HTTPMethod      string // e.g., "GET", "POST", "PUT", "DELETE"
+	HandlerRef      string // e.g., "userHandler.GetUser"
+	Package         string // Package name for import resolution
+	FullPackagePath string // e.g., "domain/user" (complete package path from file system)
 }
 
 // ProviderFunction represents a Wire provider function

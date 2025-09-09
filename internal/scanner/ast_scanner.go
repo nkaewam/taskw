@@ -5,19 +5,22 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
 
 // ASTScanner uses Go's AST parser for accurate code analysis
 type ASTScanner struct {
-	fset *token.FileSet
+	fset     *token.FileSet
+	scanDirs []string
 }
 
 // NewASTScanner creates a new AST-based scanner
-func NewASTScanner() *ASTScanner {
+func NewASTScanner(scanDirs []string) *ASTScanner {
 	return &ASTScanner{
-		fset: token.NewFileSet(),
+		fset:     token.NewFileSet(),
+		scanDirs: scanDirs,
 	}
 }
 
@@ -104,12 +107,16 @@ func (s *ASTScanner) extractHandler(fn *ast.FuncDecl, pkg, filePath string) *Han
 		return nil
 	}
 
+	// Extract full package path from file path
+	fullPackagePath := s.extractFullPackagePath(filePath, s.scanDirs)
+
 	return &HandlerFunction{
-		FunctionName: fn.Name.Name,
-		Package:      pkg,
-		HandlerName:  handlerName,
-		ReturnType:   "error",
-		FilePath:     filePath,
+		FunctionName:    fn.Name.Name,
+		Package:         pkg,
+		FullPackagePath: fullPackagePath,
+		HandlerName:     handlerName,
+		ReturnType:      "error",
+		FilePath:        filePath,
 	}
 }
 
@@ -150,11 +157,12 @@ func (s *ASTScanner) extractRoute(fn *ast.FuncDecl, handler HandlerFunction) *Ro
 				}
 
 				return &RouteMapping{
-					MethodName: fn.Name.Name,
-					Path:       path,
-					HTTPMethod: method,
-					HandlerRef: s.generateHandlerRef(handler),
-					Package:    handler.Package,
+					MethodName:      fn.Name.Name,
+					Path:            path,
+					HTTPMethod:      method,
+					HandlerRef:      s.generateHandlerRef(handler),
+					Package:         handler.Package,
+					FullPackagePath: handler.FullPackagePath,
 				}
 			}
 		}
@@ -465,4 +473,50 @@ func (s *ASTScanner) getTypeString(expr ast.Expr) string {
 	default:
 		return ""
 	}
+}
+
+// extractFullPackagePath extracts the complete package path from file path
+// This method takes a file path and returns the relative path from the project root
+// that represents the package path (e.g., "internal/domain/user" -> "domain/user")
+func (s *ASTScanner) extractFullPackagePath(filePath string, scanDirs []string) string {
+	// Normalize the file path
+	absFilePath, err := filepath.Abs(filePath)
+	if err != nil {
+		return ""
+	}
+
+	// Find the directory containing the file
+	fileDir := filepath.Dir(absFilePath)
+
+	// Find which scan directory this file belongs to
+	for _, scanDir := range scanDirs {
+		absScanDir, err := filepath.Abs(scanDir)
+		if err != nil {
+			continue
+		}
+
+		// Check if the file is within this scan directory
+		if strings.HasPrefix(fileDir, absScanDir) {
+			// Get the relative path from scan directory to file directory
+			relPath, err := filepath.Rel(absScanDir, fileDir)
+			if err != nil {
+				continue
+			}
+
+			// Convert to forward slashes for consistency
+			relPath = filepath.ToSlash(relPath)
+
+			// Remove "internal/" prefix if present, as it's typically not part of the import path
+			relPath = strings.TrimPrefix(relPath, "internal/")
+
+			// Return the package path (empty if it's the root)
+			if relPath == "." || relPath == "" {
+				return ""
+			}
+
+			return relPath
+		}
+	}
+
+	return ""
 }
