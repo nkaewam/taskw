@@ -13,3 +13,6 @@ custom_domain = true
 
 [observability.logs]
 enabled = true
+
+[limits]
+cpu_ms = 300_000
